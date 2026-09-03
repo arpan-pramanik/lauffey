@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>lauffey. — Biometric-to-Blockchain Provenance Pipeline</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚡</text></svg>">
+</head>
+<body>
+
+  <!-- Master App Container -->
+  <div class="app-wrapper">
+
+    <!-- Top Marquee Banner -->
+    <header class="marquee-bar">
+      <div class="marquee-content" id="marqueeBar">
+        <span class="marquee-item"><span class="marquee-dot"></span> MegaETH 10ms Real-Time EVM</span>
+        <span class="marquee-item"><span class="marquee-dot"></span> RetinaFace 5-Point Alignment</span>
+        <span class="marquee-item"><span class="marquee-dot"></span> ArcFace 512-d Deep Vectors</span>
+        <span class="marquee-item"><span class="marquee-dot"></span> Passive Liveness ISO/IEC 30107-3</span>
+        <span class="marquee-item"><span class="marquee-dot"></span> EigenDA Blob Commitment</span>
+        <span class="marquee-item"><span class="marquee-dot"></span> Solana Ed25519 & SPL Memo</span>
+        <span class="marquee-item"><span class="marquee-dot"></span> W3C Verifiable Credentials</span>
+        <span class="marquee-item"><span class="marquee-dot"></span> 0 External API Quota Consumed</span>
+      </div>
+      <div class="marquee-chain-badge" id="activeChainBadge">CHAIN: MegaETH (10ms)</div>
+    </header>
+
+    <!-- Main Two-Column Structure -->
+    <div class="main-layout">
+
+      <!-- Left Vertical Navigation Deck -->
+      <aside class="nav-deck">
+        <div class="brand-logo">lauffey<span>.</span></div>
+
+        <!-- 01 Blue Card: Biometric Scan -->
+        <button class="nav-card blue" onclick="focusScanner()">
+          <div class="nav-card-top">
+            <span>01</span>
+            <span class="nav-card-arrow">↗</span>
+          </div>
+          <div class="nav-card-label">Biometric<br>Scan</div>
+        </button>
+
+        <!-- 02 Yellow Card: Social Discovery -->
+        <button class="nav-card yellow" onclick="scrollToBento()">
+          <div class="nav-card-top">
+            <span>02</span>
+            <span class="nav-card-arrow">↗</span>
+          </div>
+          <div class="nav-card-label">Social<br>Match</div>
+        </button>
+
+        <!-- 03 Orange Card: Blockchain Proof -->
+        <button class="nav-card orange" onclick="scrollToBlockchain()">
+          <div class="nav-card-top">
+            <span>03</span>
+            <span class="nav-card-arrow">↗</span>
+          </div>
+          <div class="nav-card-label">Blockchain<br>Proof</div>
+        </button>
+
+        <!-- 04 Green Card: Liveness & VC -->
+        <button class="nav-card green" onclick="scrollToVC()">
+          <div class="nav-card-top">
+            <span>04</span>
+            <span class="nav-card-arrow">↗</span>
+          </div>
+          <div class="nav-card-label">Liveness<br>& VC</div>
+        </button>
+
+        <!-- Lilac CTA Pill -->
+        <button class="btn-pill-purple" onclick="simulateTamperAttack()">
+          Simulate<br>Tampering ⚡
+        </button>
+
+        <!-- Network Selector Pill -->
+        <button class="chain-select-pill" id="chainSwitchBtn" onclick="toggleChain()" title="Click to cycle blockchain engine">
+          <span id="chainBtnText">MegaETH</span>
+          <span class="chain-pulse-dot"></span>
+        </button>
+
+        <!-- Terminal / Social Strip -->
+        <div class="social-strip">
+          <a href="https://github.com/arpan-pramanik/lauffey" target="_blank" title="GitHub Repository">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path></svg>
+          </a>
+          <a href="#" onclick="copyReceiptJSON(); return false;" title="Copy Provenance Receipt">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+          </a>
+          <a href="#" onclick="triggerWebcam(); return false;" title="Webcam Scan">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+          </a>
+        </div>
+      </aside>
+
+      <!-- Center Content Canvas -->
+      <main class="content-canvas">
+
+        <!-- Top Hero Section (Intro + Interactive Scanner) -->
+        <section class="hero-bento">
+
+          <!-- Left Intro Card -->
+          <div class="hero-intro-card">
+            <div>
+              <div class="tag-badge">(On-Chain Biometric Provenance)</div>
+              <h1 class="hero-title">Face scan,<br>verified on-chain.</h1>
+              <p class="hero-desc">
+                Cryptographic provenance binding facial scans to verified web and social identity claims with real-time 10ms blockchain finality.
+              </p>
+
+              <!-- Feature Checklist -->
+              <div class="feature-checklist">
+                <div class="checklist-item">
+                  <svg class="checklist-icon" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5"/></svg>
+                  <span>RetinaFace 5-Pt Align</span>
+                </div>
+                <div class="checklist-item">
+                  <svg class="checklist-icon" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5"/></svg>
+                  <span>Passive Liveness (PAD)</span>
+                </div>
+                <div class="checklist-item">
+                  <svg class="checklist-icon" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5"/></svg>
+                  <span>ArcFace 512-d Vectors</span>
+                </div>
+                <div class="checklist-item">
+                  <svg class="checklist-icon" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5"/></svg>
+                  <span>MegaETH 10ms Blocks</span>
+                </div>
+                <div class="checklist-item">
+                  <svg class="checklist-icon" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5"/></svg>
+                  <span>EigenDA Commitments</span>
+                </div>
+                <div class="checklist-item">
+                  <svg class="checklist-icon" viewBox="0 0 24 24" fill="none"><path d="M20 6L9 17l-5-5"/></svg>
+                  <span>W3C Verifiable Creds</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="hero-actions">
+              <button class="btn-black-pill" onclick="executeCurrentScan()">
+                <span>Run Biometric Pipeline</span>
+                <span>↗</span>
+              </button>
+              <button class="btn-outline-pill" onclick="triggerWebcam()">
+                <span>Live Camera</span>
+                <span>◉</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Right Interactive Scanner & Perspective Viewport -->
+          <div class="scanner-viewport-card" id="scannerCard">
+            <div class="scanner-header">
+              <div class="scanner-title">Interactive Identity Scanner</div>
+              <div class="mode-toggle-group">
+                <button class="mode-btn active" id="modeFastBtn" onclick="setMode('fast')">Fast (100ms)</button>
+                <button class="mode-btn" id="modeHighBtn" onclick="setMode('high')">SOTA 512-d</button>
+              </div>
+            </div>
+
+            <!-- Drag & Drop Viewport -->
+            <div class="scanner-dropzone" id="dropzone" onclick="document.getElementById('fileInput').click()">
+              <div class="perspective-grid-layer"></div>
+              <div class="scanning-bar" id="scanningBar"></div>
+              
+              <!-- Video / Image Previews -->
+              <video class="video-preview" id="videoPreview" autoplay playsinline muted></video>
+              <img class="image-preview" id="imagePreview" alt="Face preview">
+              
+              <!-- Face Box HUD -->
+              <div class="face-box-overlay" id="faceBoxOverlay">
+                <div class="face-box-label" id="faceBoxLabel">DETECTED 100%</div>
+              </div>
+
+              <!-- Default Prompt -->
+              <div class="dropzone-prompt" id="dropzonePrompt">
+                <svg class="dropzone-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  <polyline points="17 8 12 3 7 8"></polyline>
+                  <line x1="12" y1="3" x2="12" y2="15"></line>
+                </svg>
+                <div class="dropzone-text">Drop any face portrait or click to upload</div>
+                <div class="dropzone-sub">Supports JPG, PNG, WEBP — or choose a test query below</div>
+              </div>
+              <input type="file" id="fileInput" style="display:none;" accept="image/*" onchange="handleFileSelect(event)">
+            </div>
+
+            <!-- Quick Selector Strip for Test Portraits -->
+            <div class="gallery-strip">
+              <div class="gallery-strip-label">Select Dynamic Test Subject:</div>
+              <div class="gallery-chips" id="galleryChipsContainer">
+                <!-- Dynamically populated via JS -->
+              </div>
+            </div>
+          </div>
+
+        </section>
+
+        <!-- Results Bento Grid (Appears after verification) -->
+        <section class="results-bento" id="resultsBento">
+
+          <!-- Card 1 (Orange): Identity & Liveness Attestation -->
+          <div class="bento-card orange" id="bentoCardIdentity">
+            <div>
+              <div class="bento-tag">Biometric Attestation</div>
+              <div class="bento-headline" id="resIdentityName">Ready for Scan</div>
+              <div class="bento-meta-list">
+                <div class="bento-meta-item">
+                  <span>Liveness Score</span>
+                  <strong id="resLiveness">--%</strong>
+                </div>
+                <div class="bento-meta-item">
+                  <span>Anti-Spoof Status</span>
+                  <strong id="resAntiSpoof">--</strong>
+                </div>
+                <div class="bento-meta-item">
+                  <span>Perceptual dHash</span>
+                  <strong id="resPHash">--</strong>
+                </div>
+                <div class="bento-meta-item">
+                  <span>Feature Vectors</span>
+                  <strong id="resVectorDim">--</strong>
+                </div>
+              </div>
+            </div>
+            <div class="telemetry-code" id="resGeometryMetrics">
+              Spatial: Aspect 1.00 | 0 px²
+            </div>
+          </div>
+
+          <!-- Card 2 (White): Discovered Social Post Claim -->
+          <div class="bento-card white" id="bentoCardSocial">
+            <div>
+              <div class="bento-tag">Social Media Match</div>
+              <div class="bento-headline" id="resSocialPlatform">Awaiting Query</div>
+              <p class="hero-desc" id="resSocialTitle" style="margin-bottom: 12px; font-size: 0.88rem;">
+                Drop a face or choose a portrait above to query social profiles.
+              </p>
+              <div class="bento-meta-list">
+                <div class="bento-meta-item">
+                  <span>Similarity Score</span>
+                  <strong id="resSimilarity" style="color: var(--color-green);">--</strong>
+                </div>
+                <div class="bento-meta-item">
+                  <span>Discovery Engine</span>
+                  <strong id="resEngine">ArcFace-512</strong>
+                </div>
+              </div>
+            </div>
+            <a href="#" target="_blank" class="bento-action-btn btn-dark" id="resSocialLink">
+              <span>View Source Post</span>
+              <span>↗</span>
+            </a>
+          </div>
+
+          <!-- Card 3 (Yellow): Real-Time Blockchain Telemetry -->
+          <div class="bento-card yellow" id="bentoCardBlockchain">
+            <div>
+              <div class="bento-tag" id="resChainHeader">MegaETH 10ms Real-Time EVM</div>
+              <div class="bento-headline" id="resBlockNumber">Block --</div>
+              <div class="bento-meta-list">
+                <div class="bento-meta-item">
+                  <span>Ledger Integrity</span>
+                  <strong id="resLedgerStatus">100% UNTAMPERED</strong>
+                </div>
+                <div class="bento-meta-item">
+                  <span>Finality Latency</span>
+                  <strong id="resLatency">--ms</strong>
+                </div>
+              </div>
+              <div class="telemetry-code" id="resMerkleRoot">
+                Root: 0x-----------------------------
+              </div>
+              <div class="telemetry-code" id="resTxHash">
+                TX: 0x-------------------------------
+              </div>
+            </div>
+            <button class="bento-action-btn btn-dark" onclick="simulateTamperAttack()">
+              <span>Test Tamper Rejection</span>
+              <span>⚡</span>
+            </button>
+          </div>
+
+        </section>
+
+      </main>
+
+    </div>
+
+  </div>
+
+  <!-- Toast Notification -->
+  <div class="toast-msg" id="toastMsg">
+    <span id="toastText">Action completed</span>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

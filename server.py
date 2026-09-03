@@ -1,0 +1,319 @@
+import os
+import sys
+import time
+import json
+import base64
+from pathlib import Path
+from flask import Flask, request, jsonify, send_from_directory, send_file
+
+from face_processor import FaceProcessor
+from liveness_detector import LivenessDetector
+from local_engine import LocalDiscoveryEngine
+from blockchain_verifier import BlockchainVerifier
+from solana_verifier import SolanaVerifier
+from megaeth_verifier import MegaETHVerifier
+from zk_credential import ZKCredentialIssuer
+
+BASE_DIR = Path(__file__).resolve().parent
+FRONTEND_DIR = BASE_DIR / "frontend"
+PROFILES_DIR = BASE_DIR / "data" / "profiles"
+TEST_DIR = BASE_DIR / "test_images"
+RECEIPTS_DIR = BASE_DIR / "receipts"
+RECEIPTS_DIR.mkdir(exist_ok=True)
+
+app = Flask(__name__, static_folder=str(FRONTEND_DIR), static_url_path="")
+
+@app.after_request
+def add_cors_headers(response):
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Headers"] = "Content-Type,Authorization"
+    response.headers["Access-Control-Allow-Methods"] = "GET,POST,OPTIONS"
+    return response
+
+@app.route("/")
+def index():
+    return send_from_directory(str(FRONTEND_DIR), "index.html")
+
+@app.route("/images/<folder>/<filename>")
+def serve_image(folder, filename):
+    if folder == "profiles":
+        return send_from_directory(str(PROFILES_DIR), filename)
+    elif folder == "test":
+        return send_from_directory(str(TEST_DIR), filename)
+    elif folder == "temp":
+        return send_from_directory(str(BASE_DIR), filename)
+    return jsonify({"error": "Folder not found"}), 404
+
+@app.route("/api/status", methods=["GET"])
+def get_status():
+    local_eng = LocalDiscoveryEngine(mode="fast")
+    return jsonify({
+        "status": "online",
+        "default_chain": "megaeth",
+        "supported_chains": ["megaeth", "solana", "evm"],
+        "gallery_count": len(local_eng.registry),
+        "timestamp": int(time.time()),
+        "network_info": {
+            "megaeth": {"block_time_ms": 10.0, "type": "Real-Time Parallel EVM", "da": "EigenDA"},
+            "solana": {"block_time_ms": 400.0, "type": "High-Throughput PoH", "da": "SPL Memo"},
+            "evm": {"block_time_ms": 1000.0, "type": "Modular Layer-2", "da": "Calldata"}
+        }
+    })
+
+@app.route("/api/profiles", methods=["GET"])
+def get_profiles():
+    local_eng = LocalDiscoveryEngine(mode="fast")
+    gallery = []
+    for item in local_eng.registry:
+        p = item["profile"]
+        img_name = Path(p.get("image", "")).name
+        gallery.append({
+            "id": p.get("id"),
+            "name": p.get("name"),
+            "source": p.get("source", "Verified Profile"),
+            "title": p.get("title", ""),
+            "link": p.get("link", ""),
+            "image_url": f"/images/profiles/{img_name}"
+        })
+
+    # Available test query portraits
+    test_queries = []
+    for f in sorted(TEST_DIR.iterdir()):
+        if f.is_file() and f.suffix.lower() in {".jpg", ".jpeg", ".png", ".webp"} and not f.name.startswith("temp_"):
+            subj = f.stem.split("_")[0].title()
+            test_queries.append({
+                "filename": f.name,
+                "subject": subj,
+                "path": str(f.relative_to(BASE_DIR)),
+                "image_url": f"/images/test/{f.name}"
+            })
+
+    return jsonify({
+        "gallery": gallery,
+        "test_queries": test_queries
+    })
+
+@app.route("/api/scan", methods=["POST"])
+def run_scan():
+    req_data = request.form.to_dict() if request.form else {}
+    if request.is_json:
+        req_data = request.get_json() or {}
+
+    chain_type = req_data.get("chain", "megaeth").lower()
+    mode = req_data.get("mode", "fast").lower()
+
+    # Determine image input
+    target_image_path = None
+    temp_uploaded = False
+
+    if "file" in request.files:
+        uploaded = request.files["file"]
+        ext = Path(uploaded.filename).suffix or ".jpg"
+        temp_path = BASE_DIR / f"temp_upload_{int(time.time()*1000)}{ext}"
+        uploaded.save(str(temp_path))
+        target_image_path = str(temp_path)
+        temp_uploaded = True
+    elif "image_path" in req_data:
+        rel_path = req_data["image_path"]
+        p = BASE_DIR / rel_path
+        if p.exists():
+            target_image_path = str(p)
+    elif "image_base64" in req_data:
+        b64_str = req_data["image_base64"]
+        if "," in b64_str:
+            b64_str = b64_str.split(",")[1]
+        img_bytes = base64.b64decode(b64_str)
+        temp_path = BASE_DIR / f"temp_upload_{int(time.time()*1000)}.jpg"
+        with open(temp_path, "wb") as f:
+            f.write(img_bytes)
+        target_image_path = str(temp_path)
+        temp_uploaded = True
+
+    if not target_image_path or not Path(target_image_path).exists():
+        # Default fallback to first query image
+        default_query = TEST_DIR / "alex_query.png"
+        target_image_path = str(default_query)
+
+    try:
+        t0 = time.perf_counter()
+        
+        # 1. Biometric Feature Extraction
+        processor = FaceProcessor(mode=mode)
+        face_data = processor.process(target_image_path)
+        
+        # 2. Passive Presentation Attack Detection (Liveness)
+        detector = LivenessDetector()
+        liveness_data = detector.analyze(target_image_path)
+        
+        # 3. Social Discovery Search
+        engine = LocalDiscoveryEngine(mode=mode)
+        matches = engine.search_by_embedding(face_data["embedding"])
+        top_match = matches[0] if matches else {
+            "title": "No verified match found",
+            "source": "Unverified",
+            "link": "https://unverified.identity",
+            "similarity_score": 0.0,
+            "confidence": "LOW (NO MATCH)"
+        }
+
+        # 4. Cryptographic Blockchain Anchoring
+        if chain_type == "solana":
+            verifier = SolanaVerifier()
+            chain_label = "Solana (Ed25519 / SPL Memo)"
+        elif chain_type == "evm":
+            verifier = BlockchainVerifier()
+            chain_label = "EVM L2 (ECDSA secp256k1)"
+        else:
+            verifier = MegaETHVerifier()
+            chain_label = "MegaETH Real-Time EVM (10ms Finality)"
+
+        manifest = verifier.build_provenance_manifest(
+            face_embedding=face_data["embedding"],
+            post_url=top_match.get("link", ""),
+            post_title=top_match.get("title", ""),
+            confidence=face_data["confidence"],
+            extra_metadata={
+                "source": top_match.get("source"),
+                "similarity": top_match.get("similarity_score", 1.0),
+                "liveness_score": liveness_data["liveness_score"],
+                "perceptual_hash": face_data.get("perceptual_hash", "0x0")
+            }
+        )
+
+        tx_hash = verifier.record_on_chain(manifest)
+        verify_res = verifier.verify_on_chain(tx_hash, manifest)
+
+        # 5. Issue W3C Verifiable Credential
+        issuer = ZKCredentialIssuer()
+        subj_name = top_match.get("title", "Verified Subject").split("]")[0].replace("[", "").strip()
+        cred_bundle = issuer.issue_credential(
+            subject_did=f"did:key:{tx_hash[2:34]}",
+            biometric_embedding=face_data["embedding"],
+            claimed_identity=subj_name,
+            tx_hash=tx_hash,
+            merkle_root=manifest["merkle_root"],
+            liveness_score=liveness_data["liveness_score"]
+        )
+
+        total_elapsed = round(time.perf_counter() - t0, 3)
+
+        response_payload = {
+            "success": True,
+            "chain": chain_type,
+            "chain_label": chain_label,
+            "total_elapsed_sec": total_elapsed,
+            "face": {
+                "confidence": face_data["confidence"],
+                "bbox": face_data["bbox"],
+                "embedding_dim": face_data["embedding_dim"],
+                "perceptual_hash": face_data.get("perceptual_hash"),
+                "geometry": face_data.get("geometry", {}),
+                "engine": face_data.get("engine"),
+                "cropped_image": f"/images/temp/{Path(face_data['cropped_image']).name}" if Path(face_data['cropped_image']).exists() else None
+            },
+            "liveness": {
+                "is_live": liveness_data["is_live"],
+                "liveness_score": liveness_data["liveness_score"],
+                "status": liveness_data["status"],
+                "metrics": liveness_data["metrics"]
+            },
+            "discovery": {
+                "top_match": top_match,
+                "all_matches": matches[:4]
+            },
+            "blockchain": {
+                "tx_hash": tx_hash,
+                "merkle_root": manifest["merkle_root"],
+                "validator": manifest["validator_address"],
+                "signature": manifest["signature"],
+                "verified": verify_res.get("verified", False),
+                "block_number": verify_res.get("block_number") or verify_res.get("slot"),
+                "block_time_ms": verify_res.get("block_time_ms", 400.0 if chain_type == "solana" else 1000.0),
+                "eigenda_blob": manifest.get("eigenda_blob_commitment")
+            },
+            "manifest": manifest,
+            "verifiable_credential": cred_bundle["verifiable_credential"]
+        }
+        return jsonify(response_payload)
+
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+    finally:
+        if temp_uploaded and target_image_path and Path(target_image_path).exists():
+            try:
+                os.remove(target_image_path)
+            except Exception:
+                pass
+
+@app.route("/api/tamper", methods=["POST"])
+def simulate_tamper():
+    req = request.get_json() or {}
+    manifest = req.get("manifest")
+    tx_hash = req.get("tx_hash")
+    chain_type = req.get("chain", "megaeth").lower()
+
+    if not manifest or not tx_hash:
+        return jsonify({"success": False, "error": "Manifest and tx_hash required"}), 400
+
+    if chain_type == "solana":
+        verifier = SolanaVerifier()
+        verifier.ledger[tx_hash] = {
+            "signature": tx_hash,
+            "slot": 312850101,
+            "block_time": int(time.time()),
+            "merkle_root": manifest["merkle_root"],
+            "memo_instruction": {},
+            "validator": manifest["validator_address"],
+            "manifest": manifest
+        }
+    elif chain_type == "evm":
+        verifier = BlockchainVerifier()
+        verifier.ledger[tx_hash] = {
+            "tx_hash": tx_hash,
+            "block_number": 1,
+            "merkle_root": manifest["merkle_root"],
+            "validator": manifest["validator_address"],
+            "manifest": manifest
+        }
+    else:
+        verifier = MegaETHVerifier()
+        verifier.ledger[tx_hash] = {
+            "tx_hash": tx_hash,
+            "block_number": 10450201,
+            "block_time_ms": 10.0,
+            "merkle_root": manifest["merkle_root"],
+            "eigenda_blob_commitment": manifest.get("eigenda_blob_commitment", ""),
+            "validator": manifest["validator_address"],
+            "manifest": manifest
+        }
+
+    tampered_manifest = json.loads(json.dumps(manifest))
+    tampered_manifest["metadata"]["post_url"] = "https://malicious-counterfeit-profile.com/fake"
+    tampered_manifest["leaves"]["social_leaf"] = "0x" + os.urandom(32).hex()
+
+    res = verifier.verify_on_chain(tx_hash, tampered_manifest)
+    return jsonify({
+        "tamper_detected": not res.get("verified", False),
+        "status": "REJECTED_BY_BLOCKCHAIN" if not res.get("verified") else "TAMPER_FAILED",
+        "verification_result": res
+    })
+
+@app.route("/api/camera", methods=["POST"])
+def scan_camera():
+    req = request.get_json() or {}
+    chain_type = req.get("chain", "megaeth").lower()
+    mode = req.get("mode", "fast").lower()
+
+    scan_file = BASE_DIR / "webcam_scan.jpg"
+    try:
+        FaceProcessor.capture_from_webcam(0, str(scan_file))
+        # Reuse scan logic
+        with app.test_request_context(json={"image_path": "webcam_scan.jpg", "chain": chain_type, "mode": mode}):
+            return run_scan()
+    except Exception as e:
+        return jsonify({"success": False, "error": f"Camera scan failed: {e}"}), 500
+
+if __name__ == "__main__":
+    port = int(os.getenv("PORT", 5000))
+    print(f"[*] Starting Lauffey Web Server on http://127.0.0.1:{port}")
+    app.run(host="0.0.0.0", port=port, debug=False)
