@@ -139,3 +139,25 @@ The repository includes diverse public-domain benchmark queries across multiple 
 | `test_images/lin_query.png` | Lin-Manuel Miranda | Playwright / Actor | Lin-Manuel Miranda |
 | `data/profiles/` | Gallery Directory | Dynamically auto-indexed | Any dropped portrait auto-indexes |
 
+---
+
+## Blockchain Used
+
+Lauffey uses an **EVM-compatible Layer-2 / Modular Data Availability Architecture**:
+- **Ledger Standard**: Ethereum Virtual Machine (EVM) calldata anchoring compatible with Ethereum Mainnet, Arbitrum, Base, Optimism, Monad, and local EVM nodes.
+- **Local Testing Engine**: Integrated `py-evm` in-memory blockchain via `eth-tester` and `web3.py`. This provides zero-cost, instant-finality, deterministic transaction execution without requiring testnet faucets or gas fees during testing.
+- **Configurable RPC**: To connect to a live public testnet (e.g. Sepolia, Arbitrum Sepolia, Base Sepolia), set `BLOCKCHAIN_RPC=https://your-node-endpoint` in `.env`.
+- **Cryptographic Primitives**:
+  - **Keccak-256 (SHA3-256)**: Ethereum-native hashing for Merkle Provenance Trees and leaf commitments.
+  - **ECDSA secp256k1 (EIP-191)**: Decentralized validator key recovery and digital attestation.
+
+---
+
+## Known Limitations
+
+1. **Third-Party API Rate Limits in Live Mode**: Live web search requires SerpAPI credits. If quota is exhausted or network fails, the pipeline automatically falls back to the on-device discovery engine.
+2. **Private Social Media Posts**: Reverse image search only discovers publicly indexed web and social media content. Private accounts (e.g. locked Instagram or private X accounts) cannot be crawled by search engines.
+3. **Extreme Facial Occlusion**: Heavy masks, extreme sunglasses, or severe profile angles (>60° yaw) may degrade biometric landmark detection confidence below verification thresholds.
+4. **L1 State Storage Economics**: Storing raw 512-dimensional floating point vectors directly in Ethereum L1 storage is economically impractical. Lauffey overcomes this limitation by anchoring the 32-byte Merkle Root commitment into transaction calldata, keeping verification costs minimal (<$0.001 on Layer-2 rollups).
+
+
