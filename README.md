@@ -67,21 +67,29 @@ pip install -r requirements.txt
 
 ## How to Run
 
-### 1. On-Device Biometric Discovery (Default — 0 API Quota Consumed)
-Executes real vector similarity search against the local profile registry on device. Zero external API calls, zero quota burned, executes in ~150ms:
+### 1. Dynamic On-Device Biometric Discovery (0 API Quota Consumed)
+Executes real vector similarity search against the dynamically indexed biometric gallery:
 ```bash
-# Default benchmark test (unseen photo of Obama -> matches Obama profile)
+# Automatically discovers available queries in test_images/
 python main.py
 
-# Query with specific test image
-python main.py --image test_images/obama_query.jpg
+# Query with ANY arbitrary image
+python main.py --image path/to/any_face.jpg
+python main.py --image test_images/messi_query.jpg
 python main.py --image test_images/biden_query.jpg
+python main.py --image test_images/lena_query.jpg
+
+# List all dynamically indexed identities in the gallery
+python main.py --list-profiles
+
+# Register ANY novel identity into the biometric gallery at runtime
+python main.py --register path/to/new_face.jpg --name "Full Name"
 ```
 
 ### 2. Live Reverse Visual Search (Google Lens via SerpAPI)
-Queries external live web search across social networks (requires `SERPAPI_KEY` in `.env`):
+Queries external live web search across social networks for any face image (requires `SERPAPI_KEY` in `.env`):
 ```bash
-python main.py --image test_portrait.jpg --live
+python main.py --image path/to/any_face.jpg --live
 ```
 
 ### 3. Live Webcam Hardware Scan
@@ -102,20 +110,32 @@ Inspects and mathematically audits an exported provenance receipt JSON file:
 python verify_receipt.py --receipt receipts/sample_receipt.json
 ```
 
-### 6. Run Unit Test Suite
-Executes the full automated cryptographic test suite:
+### 6. Automated Unit Test Suite
+Executes the full automated cryptographic test suite dynamically:
 ```bash
 python test_pipeline.py
 ```
-*(All 6 unit tests pass in ~0.24s)*
+
+### 7. Extreme Multi-Vector Performance & Adversarial Benchmark
+Executes multi-identity perturbation stress, concurrency throughput, Merkle scaling to 16,384 leaves, vector DB scaling to 50k identities, and 1,000 adversarial tamper attacks:
+```bash
+python benchmark.py
+```
 
 ---
 
-## Included Test Dataset
+## Dynamic Test Dataset
 
-| Image Path | Subject | Purpose | Expected Top Match |
+The repository includes diverse public-domain benchmark queries across multiple subjects:
+
+| Query Image | Subject | Purpose | Expected Dynamic Match |
 |---|---|---|---|
-| `test_images/obama_query.jpg` | Barack Obama | Query test (unseen lighting/angle) | Barack Obama (`x.com/BarackObama`, sim > 0.70) |
-| `test_images/biden_query.jpg` | Joe Biden | Query test | Joe Biden (`x.com/JoeBiden`, sim ~ 1.0) |
-| `data/profiles/` | Multi-identity gallery | Local gallery of registered profiles | Extracted 128-d biometric vectors |
+| `test_images/obama_query.jpg` | Barack Obama | Query test (angled pose) | Barack Obama |
+| `test_images/obama_query_alt.jpg`| Barack Obama | Alternative query lighting | Barack Obama |
+| `test_images/biden_query.jpg` | Joe Biden | Query test | Joe Biden |
+| `test_images/messi_query.jpg` | Lionel Messi | Athlete portrait | Lionel Messi |
+| `test_images/lena_query.jpg` | Lena Forsen | Signal processing test portrait | Lena Forsen |
+| `test_images/alex_query.png` | Alex Lacamoire | Musician / Composer | Alex Lacamoire |
+| `test_images/lin_query.png` | Lin-Manuel Miranda | Playwright / Actor | Lin-Manuel Miranda |
+| `data/profiles/` | Gallery Directory | Dynamically auto-indexed | Any dropped portrait auto-indexes |
 

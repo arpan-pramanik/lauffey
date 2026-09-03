@@ -28,19 +28,47 @@ def main():
     parser.add_argument("--dry-run", action="store_true", help="Run with simulated search to conserve SerpAPI credits")
     parser.add_argument("--force-search", action="store_true", help="Bypass local search cache in live mode")
     parser.add_argument("--tamper-demo", action="store_true", help="Demonstrate tamper detection by altering proof data")
+    parser.add_argument("--register", type=str, required=False, help="Register any custom face image into the biometric gallery")
+    parser.add_argument("--name", type=str, required=False, help="Display name for identity being registered")
+    parser.add_argument("--list-profiles", action="store_true", help="List all dynamically indexed identities in the gallery")
     args = parser.parse_args()
 
     print_header()
     mode = "fast" if args.fast else "high"
 
+    # Handle dynamic listing
+    if args.list_profiles:
+        engine = LocalDiscoveryEngine(mode=mode)
+        print(f"\n[*] Registered Biometric Gallery ({len(engine.registry)} identities):")
+        for idx, reg in enumerate(engine.registry, 1):
+            p = reg["profile"]
+            print(f"  [{idx}] {p['name']:<25} ({p.get('source', 'Unknown')}) -> {p.get('link', 'N/A')}")
+        return
+
+    # Handle dynamic registration
+    if args.register:
+        engine = LocalDiscoveryEngine(mode=mode)
+        reg_info = engine.register_identity(args.register, name=args.name)
+        print(f"\n[✓] Successfully registered new biometric profile:")
+        print(f"    Name  : {reg_info['name']}")
+        print(f"    Image : {reg_info['image']}")
+        print(f"    Link  : {reg_info['link']}")
+        return
+
     if args.camera:
         print("\n[*] Initializing live hardware camera sensor...")
         image_path = FaceProcessor.capture_from_webcam(device_id=0, output_path="webcam_scan.jpg")
     elif not args.image:
-        default_sample = Path("test_images/obama_query.jpg")
-        if default_sample.exists():
-            image_path = str(default_sample)
-            print(f"[*] No --image provided. Defaulting to benchmark test image: {image_path}")
+        test_dir = Path("test_images")
+        test_images = sorted([
+            f for f in test_dir.iterdir()
+            if f.is_file() and f.suffix.lower() in {".jpg", ".jpeg", ".png", ".webp"} and not f.name.startswith("temp_")
+        ]) if test_dir.exists() else []
+
+        if test_images:
+            image_path = str(test_images[0])
+            print(f"[*] No --image passed. Dynamically selected query image: {image_path}")
+            print(f"    (Available test queries: {', '.join([f.name for f in test_images])})")
         else:
             default_sample = Path("test_portrait.jpg")
             image_path = str(default_sample)

@@ -34,5 +34,23 @@
     "title": "Grateful for the incredible Broadway cast and crew tonight!",
     "link": "https://x.com/Lin_Manuel/status/1789421890123849102",
     "thumbnail": "https://pbs.twimg.com/profile_images/lin.jpg"
+  },
+  {
+    "id": "lionel_messi",
+    "name": "Lionel Messi",
+    "image": "data/profiles/messi5.jpg",
+    "source": "Instagram",
+    "title": "Pre-match preparation and team training session.",
+    "link": "https://www.instagram.com/p/C68m_Messi/",
+    "thumbnail": "https://instagram.com/p/messi.jpg"
+  },
+  {
+    "id": "lena_forsen",
+    "name": "Lena Forsen",
+    "image": "data/profiles/lena.jpg",
+    "source": "Web Portfolio",
+    "title": "Historical standard imaging and digital signal processing test portrait.",
+    "link": "https://en.wikipedia.org/wiki/Lenna",
+    "thumbnail": "https://upload.wikimedia.org/wikipedia/en/7/7d/Lenna_%28test_image%29.png"
   }
 ]

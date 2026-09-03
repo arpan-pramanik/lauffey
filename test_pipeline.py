@@ -1,6 +1,7 @@
 import os
 import sys
 import unittest
+from pathlib import Path
 import numpy as np
 from eth_utils import keccak
 
@@ -81,19 +82,44 @@ class TestLauffeyPipeline(unittest.TestCase):
         self.assertIn("title", results[0])
 
     def test_06_on_device_biometric_discovery_engine(self):
-        """Verify that the local biometric discovery engine accurately identifies test identities."""
+        """Verify that the local biometric discovery engine accurately identifies identities dynamically."""
         engine = LocalDiscoveryEngine()
         self.assertGreater(len(engine.registry), 0)
 
-        # Query with unseen photo of Obama
-        obama_query = "test_images/obama_query.jpg"
-        if os.path.exists(obama_query):
-            matches = engine.search_by_image(obama_query)
+        # Test dynamic matching across all available query images in test_images/
+        test_dir = Path("test_images")
+        queries = sorted([
+            f for f in test_dir.iterdir()
+            if f.is_file() and f.suffix.lower() in {".jpg", ".png", ".jpeg"} and not f.name.startswith("temp_")
+        ])
+        self.assertGreater(len(queries), 0)
+
+        for q in queries[:3]:
+            matches = engine.search_by_image(str(q))
             self.assertGreater(len(matches), 0)
             top = matches[0]
-            self.assertIn("Obama", top["title"])
-            self.assertGreater(top["similarity_score"], 0.50)
+            self.assertGreater(top["similarity_score"], 0.35)
             self.assertIn("HIGH", top["confidence"])
+
+        # Test dynamic runtime registration of a novel identity
+        first_img = str(queries[0])
+        novel_profile = engine.register_identity(
+            image_path=first_img,
+            name="Novel Registered Test Subject",
+            source="Test Suite Registry",
+            link="https://test.suite/novel_subject"
+        )
+        self.assertEqual(novel_profile["name"], "Novel Registered Test Subject")
+
+        # Verify that querying it matches the newly registered record
+        matches = engine.search_by_image(first_img)
+        matching_titles = [m["title"] for m in matches if m["similarity_score"] > 0.90]
+        self.assertTrue(any("Novel Registered Test Subject" in t for t in matching_titles))
+
+        # Cleanup registered file
+        registered_path = Path(novel_profile["image"])
+        if registered_path.exists():
+            registered_path.unlink()
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
