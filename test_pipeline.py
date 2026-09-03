@@ -1,5 +1,6 @@
 import os
 import sys
+import json
 import unittest
 from pathlib import Path
 import numpy as np
@@ -120,6 +121,39 @@ class TestLauffeyPipeline(unittest.TestCase):
         registered_path = Path(novel_profile["image"])
         if registered_path.exists():
             registered_path.unlink()
+
+    def test_07_passive_liveness_detection(self):
+        """Verify presentation attack detection on face portraits."""
+        from liveness_detector import LivenessDetector
+        detector = LivenessDetector()
+        res = detector.analyze("test_images/obama_query.jpg")
+        self.assertTrue(res["is_live"])
+        self.assertGreater(res["liveness_score"], 0.50)
+        self.assertEqual(res["status"], "GENUINE_LIVE_SUBJECT")
+
+    def test_08_w3c_verifiable_credential(self):
+        """Verify W3C Verifiable Credential issuance, cryptographic audit, and tamper detection."""
+        from zk_credential import ZKCredentialIssuer
+        issuer = ZKCredentialIssuer()
+        bundle = issuer.issue_credential(
+            subject_did="did:key:test_subject_123",
+            biometric_embedding=[0.05] * 128,
+            claimed_identity="Test Subject",
+            tx_hash="0x123abc",
+            merkle_root="0xroot789",
+            liveness_score=0.95
+        )
+        vc = bundle["verifiable_credential"]
+        
+        # Valid verification
+        is_valid, _ = ZKCredentialIssuer.verify_credential(vc)
+        self.assertTrue(is_valid)
+
+        # Tampered verification
+        tampered_vc = json.loads(json.dumps(vc))
+        tampered_vc["credentialSubject"]["claimedIdentity"] = "Impersonator"
+        is_tampered_valid, _ = ZKCredentialIssuer.verify_credential(tampered_vc)
+        self.assertFalse(is_tampered_valid)
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

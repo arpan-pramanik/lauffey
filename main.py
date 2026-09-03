@@ -9,6 +9,8 @@ from face_processor import FaceProcessor
 from web_searcher import WebSearcher
 from local_engine import LocalDiscoveryEngine
 from blockchain_verifier import BlockchainVerifier
+from liveness_detector import LivenessDetector
+from zk_credential import ZKCredentialIssuer
 
 RECEIPTS_DIR = Path(__file__).resolve().parent / "receipts"
 RECEIPTS_DIR.mkdir(exist_ok=True)
@@ -31,10 +33,27 @@ def main():
     parser.add_argument("--register", type=str, required=False, help="Register any custom face image into the biometric gallery")
     parser.add_argument("--name", type=str, required=False, help="Display name for identity being registered")
     parser.add_argument("--list-profiles", action="store_true", help="List all dynamically indexed identities in the gallery")
+    parser.add_argument("--verify-vc", type=str, required=False, help="Cryptographically audit a W3C Verifiable Credential JSON file")
     args = parser.parse_args()
 
     print_header()
     mode = "fast" if args.fast else "high"
+
+    # Handle VC verification
+    if args.verify_vc:
+        vc_path = Path(args.verify_vc)
+        if not vc_path.exists():
+            print(f"[!] Credential file not found: {args.verify_vc}")
+            return
+        with open(vc_path, "r", encoding="utf-8") as f:
+            vc_data = json.load(f)
+        valid, msg = ZKCredentialIssuer.verify_credential(vc_data)
+        print(f"\n[*] Auditing W3C Verifiable Credential: {vc_path.name}")
+        print(f"  [✓] Subject ID   : {vc_data.get('credentialSubject', {}).get('id')}")
+        print(f"  [✓] Claimed Identity: {vc_data.get('credentialSubject', {}).get('claimedIdentity')}")
+        print(f"  [✓] Biometric Commitment: {vc_data.get('credentialSubject', {}).get('biometricCommitment')}")
+        print(f"  [✓] Cryptographic Audit : {'PASS' if valid else 'FAIL'} ({msg})")
+        return
 
     # Handle dynamic listing
     if args.list_profiles:
@@ -86,11 +105,16 @@ def main():
     t0 = time.perf_counter()
     face_proc = FaceProcessor(mode=mode)
     face_data = face_proc.process(image_path)
+    
+    # Passive Presentation Attack Detection (Liveness)
+    liveness_det = LivenessDetector()
+    live_res = liveness_det.analyze(image_path)
     t_face = time.perf_counter() - t0
 
     print(f"  [✓] Engine                  : {face_data.get('engine')}")
     print(f"  [✓] Face localized & cropped: {face_data['cropped_image']}")
     print(f"  [✓] Face Confidence Score   : {face_data['confidence']*100:.1f}%")
+    print(f"  [✓] Passive Liveness Score  : {live_res['liveness_score']*100:.1f}% ({live_res['status']})")
     print(f"  [✓] Biometric Embedding     : {face_data['embedding_dim']}-d feature vector")
     print(f"  [✓] Detection Latency       : {face_data['detect_ms']:.2f}ms")
     print(f"  [✓] Embedding Latency       : {face_data['embed_ms']:.2f}ms")
@@ -152,7 +176,8 @@ def main():
         extra_metadata={
             "source": target_post.get("source"),
             "similarity": target_post.get("similarity_score", 1.0),
-            "engine": target_post.get("engine", "Google Lens")
+            "engine": target_post.get("engine", "Google Lens"),
+            "liveness_score": live_res["liveness_score"]
         }
     )
 
@@ -176,6 +201,22 @@ def main():
     with open(receipt_file, "w", encoding="utf-8") as f:
         json.dump(receipt_data, f, indent=2)
     print(f"  [✓] Exported Portable Receipt: {receipt_file.name}")
+
+    # Issue W3C Verifiable Credential with ZK Selective Disclosure
+    issuer = ZKCredentialIssuer()
+    subj_name = target_post.get("title", "Verified Subject").split("]")[0].replace("[", "").strip()
+    cred_bundle = issuer.issue_credential(
+        subject_did=f"did:key:{tx_hash[2:34]}",
+        biometric_embedding=face_data["embedding"],
+        claimed_identity=subj_name,
+        tx_hash=tx_hash,
+        merkle_root=manifest["merkle_root"],
+        liveness_score=live_res["liveness_score"]
+    )
+    vc_file = RECEIPTS_DIR / f"credential_{tx_hash[2:12]}.json"
+    with open(vc_file, "w", encoding="utf-8") as f:
+        json.dump(cred_bundle["verifiable_credential"], f, indent=2)
+    print(f"  [✓] Issued W3C Credential   : {vc_file.name}")
 
     # ---------------------------------------------------------
     # STAGE 4: Multi-Layer Independent Ledger Re-Verification
