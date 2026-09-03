@@ -122,6 +122,15 @@ Executes multi-identity perturbation stress, concurrency throughput, Merkle scal
 python benchmark.py
 ```
 
+### 7. Interactive Web Frontend (units.gr Design Language)
+Start the local web server to launch the visual interface:
+```bash
+python server.py
+# Open your browser at http://localhost:5000
+```
+- **Design System**: High-contrast Bauhaus / Neo-Brutalist design language inspired by `units.gr` (blueprint grid canvas, cream floating container, and color-blocked numbered card deck).
+- **Interactive Features**: Drag-and-drop face image dropzone, live webcam trigger, test portrait quick selector, real-time face landmark HUD, passive liveness gauge, and one-click tamper simulation test.
+
 ---
 
 ## Dynamic Test Dataset
