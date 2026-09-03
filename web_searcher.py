@@ -26,28 +26,41 @@ class WebSearcher:
 
     def upload_to_temp_host(self, image_path: str) -> str:
         """
-        Uploads local image to a temporary public host so Google Lens can ingest it.
-        Uses Litterbox (1 hour auto-delete) or TmpFiles as fallback.
+        Uploads local image to a reliable public host so Google Lens can fetch the raw image.
+        Uses Uguu (primary) and TmpFiles / Litterbox (fallbacks).
         """
-        # Primary: tmpfiles.org
-        for attempt in range(2):
-            try:
-                with open(image_path, "rb") as f:
-                    resp = requests.post(
-                        "https://tmpfiles.org/api/v1/upload",
-                        files={"file": f},
-                        timeout=15
-                    )
+        # Primary: Uguu.se
+        try:
+            with open(image_path, "rb") as f:
+                resp = requests.post(
+                    "https://uguu.se/upload.php",
+                    files={"files[]": f},
+                    timeout=15
+                )
+            if resp.status_code == 200:
                 data = resp.json()
-                if data.get("status") == "success":
-                    url = data["data"]["url"]
-                    parts = url.split("tmpfiles.org/")
-                    direct_url = f"https://tmpfiles.org/dl/{parts[1]}"
-                    return direct_url
-            except Exception as e:
-                time.sleep(1)
+                if data.get("success") and data.get("files"):
+                    return data["files"][0]["url"]
+        except Exception:
+            pass
 
-        # Secondary: Litterbox (1 hour expiry)
+        # Fallback 1: tmpfiles.org
+        try:
+            with open(image_path, "rb") as f:
+                resp = requests.post(
+                    "https://tmpfiles.org/api/v1/upload",
+                    files={"file": f},
+                    timeout=15
+                )
+            data = resp.json()
+            if data.get("status") == "success":
+                url = data["data"]["url"]
+                parts = url.split("tmpfiles.org/")
+                return f"https://tmpfiles.org/dl/{parts[1]}"
+        except Exception:
+            pass
+
+        # Fallback 2: Litterbox
         try:
             with open(image_path, "rb") as f:
                 resp = requests.post(
@@ -72,9 +85,11 @@ class WebSearcher:
         cache_file = CACHE_DIR / f"lens_search_{img_hash[:16]}.json"
 
         if not force and cache_file.exists():
-            print(f"  [*] Reusing locally cached search result: {cache_file.name}")
             with open(cache_file, "r", encoding="utf-8") as f:
-                return json.load(f)
+                cached = json.load(f)
+                if cached:  # Only reuse non-empty cache
+                    print(f"  [*] Reusing locally cached search result: {cache_file.name}")
+                    return cached
 
         if not self.api_key:
             raise ValueError("SERPAPI_KEY is required to perform reverse web search.")
@@ -112,22 +127,23 @@ class WebSearcher:
         for match in raw_matches:
             link = match.get("link", "")
             source = match.get("source", "").lower()
+            title = match.get("title", "")
             
             is_social = any(domain in link.lower() or domain in source for domain in SOCIAL_DOMAINS)
             if is_social:
                 social_posts.append({
-                    "title": match.get("title", "Untitled Post"),
+                    "title": title or "Social Post",
                     "link": link,
-                    "source": match.get("source", "Unknown"),
+                    "source": match.get("source", "Social Media"),
                     "thumbnail": match.get("thumbnail", ""),
-                    "confidence": "high" if "visual_matches" in data else "medium"
+                    "confidence": "high"
                 })
 
         # Fallback to top visual matches if specific social domains are not direct visual matches
         if not social_posts and raw_matches:
-            for match in raw_matches[:3]:
+            for match in raw_matches[:5]:
                 social_posts.append({
-                    "title": match.get("title", "Visual Match"),
+                    "title": match.get("title", "Web Match"),
                     "link": match.get("link", ""),
                     "source": match.get("source", "Web"),
                     "thumbnail": match.get("thumbnail", ""),
@@ -135,8 +151,9 @@ class WebSearcher:
                 })
 
         # Save to cache to safeguard user API quota
-        with open(cache_file, "w", encoding="utf-8") as f:
-            json.dump(social_posts, f, indent=2)
+        if social_posts:
+            with open(cache_file, "w", encoding="utf-8") as f:
+                json.dump(social_posts, f, indent=2)
 
         return social_posts
 

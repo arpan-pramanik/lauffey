@@ -47,7 +47,7 @@ class BlockchainVerifier:
         embed_hash = hashlib.sha256(embed_str.encode("utf-8")).hexdigest()
 
         canonical_payload = {
-            "version": "atreus-v1",
+            "version": "lauffey-v1",
             "face_embedding_hash": embed_hash,
             "post_url": post_url.strip(),
             "post_title": post_title.strip(),

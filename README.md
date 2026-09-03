@@ -1,6 +1,6 @@
-# Atreus: Biometric Face-to-Blockchain Verification Pipeline
+# Lauffey: Biometric Face-to-Blockchain Verification Pipeline
 
-**Atreus** is an end-to-end Python pipeline that:
+**Lauffey** is an end-to-end Python pipeline that:
 1. Takes an input face scan / image.
 2. Extracts biometric features and localizes the facial region using GPU-accelerated deep learning.
 3. Conducts a reverse visual search across the web and social media (X, Instagram, LinkedIn, Reddit, etc.) via Google Lens.
@@ -56,7 +56,7 @@ Designed to take advantage of high-performance workstation hardware:
 
 - **Chain Type**: Ethereum Virtual Machine (EVM).
 - **Default Engine**: In-memory EVM (`EthereumTesterProvider` via `eth-tester[py-evm]`) with zero external daemon requirements, zero gas faucets, and instant block finality.
-- **Calldata Storage**: Rather than deploying gas-heavy bespoke smart contracts, Atreus stores the canonical SHA-256 fingerprint directly in the transaction's `data` (calldata) field. This is the gold-standard lightweight pattern for immutable data anchoring on Ethereum.
+- **Calldata Storage**: Rather than deploying gas-heavy bespoke smart contracts, Lauffey stores the canonical SHA-256 fingerprint directly in the transaction's `data` (calldata) field. This is the gold-standard lightweight pattern for immutable data anchoring on Ethereum.
 - **Public Network Support**: Pointing `BLOCKCHAIN_RPC` in `config.py` (or `.env`) to any public EVM node (e.g. Sepolia, Arbitrum, or Mainnet) immediately transitions the pipeline to a live public chain.
 
 ---
@@ -109,4 +109,4 @@ python main.py --image path/to/face.jpg --force-search
 
 1. **General Visual Match vs. Biometric Lookup**: Google Lens is a general visual search engine rather than a dedicated facial recognition database like Clearview AI or PimEyes. While cropping to the face with padding significantly biases Lens towards social profile pictures and avatars, very obscure faces with low public web presence may return general visual matches rather than direct social profile links.
 2. **Ephemeral In-Memory Chain**: The default `EthereumTesterProvider` is an in-memory EVM state that lives for the lifetime of the process. For persistent cross-process historical lookup, configure `BLOCKCHAIN_RPC` to an active Ganache or Sepolia endpoint.
-3. **Free Tier Quotas**: Free-tier SerpAPI accounts provide 100 requests/month. Atreus incorporates a local SHA-256 caching layer in `.cache/` to ensure identical images never consume duplicate credits.
+3. **Free Tier Quotas**: Free-tier SerpAPI accounts provide 100 requests/month. Lauffey incorporates a local SHA-256 caching layer in `.cache/` to ensure identical images never consume duplicate credits.

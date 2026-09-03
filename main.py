@@ -10,11 +10,11 @@ from blockchain_verifier import BlockchainVerifier
 
 def print_header():
     print("=" * 70)
-    print("  ATREUS: High-Performance Biometric Face-to-Blockchain Pipeline")
+    print("  LAUFFEY: High-Performance Biometric Face-to-Blockchain Pipeline")
     print("=" * 70)
 
 def main():
-    parser = argparse.ArgumentParser(description="Atreus: Face Scan to Blockchain Pipeline")
+    parser = argparse.ArgumentParser(description="Lauffey: Face Scan to Blockchain Pipeline")
     parser.add_argument("--image", "-i", type=str, required=False, help="Path to input face image")
     parser.add_argument("--dry-run", action="store_true", help="Run with simulated search to conserve SerpAPI credits")
     parser.add_argument("--force-search", action="store_true", help="Bypass local search cache")
