@@ -18,3 +18,4 @@ sample_face.jpg
 receipts/receipt_*.json
 webcam_scan.jpg
 */temp_*
+receipts/credential_*.json
