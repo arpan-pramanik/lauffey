@@ -21,6 +21,7 @@ def print_header():
 def main():
     parser = argparse.ArgumentParser(description="Lauffey: Advanced Biometric Face-to-Blockchain Pipeline")
     parser.add_argument("--image", "-i", type=str, required=False, help="Path to input face image")
+    parser.add_argument("--camera", "--webcam", action="store_true", help="Capture a live face scan using your laptop camera (/dev/video0)")
     parser.add_argument("--dry-run", action="store_true", help="Run with simulated search to conserve SerpAPI credits")
     parser.add_argument("--force-search", action="store_true", help="Bypass local search cache")
     parser.add_argument("--tamper-demo", action="store_true", help="Demonstrate tamper detection by altering proof data")
@@ -28,13 +29,16 @@ def main():
 
     print_header()
 
-    if not args.image:
+    if args.camera:
+        print("\n[*] Initializing live hardware camera sensor...")
+        image_path = FaceProcessor.capture_from_webcam(device_id=0, output_path="webcam_scan.jpg")
+    elif not args.image:
         default_sample = Path("test_portrait.jpg")
         if default_sample.exists():
             image_path = str(default_sample)
             print(f"[*] No --image provided. Defaulting to: {image_path}")
         else:
-            print("[!] Error: Please provide an image path using --image <path/to/image.jpg>")
+            print("[!] Error: Please provide an image path using --image <path/to/image.jpg> or use --camera")
             sys.exit(1)
     else:
         image_path = args.image

@@ -42,10 +42,36 @@ class FaceProcessor:
         self.detector = None
         self.recognizer = None
         try:
-            # SFace recognition model
             self.recognizer = cv2.FaceRecognizerSF_create(str(SFACE_PATH), "")
         except Exception as e:
             print(f"  [!] Failed to load SFace model: {e}")
+
+    @staticmethod
+    def capture_from_webcam(device_id: int = 0, output_path: str = "webcam_scan.jpg") -> str:
+        """
+        Captures a live frame from the user's laptop camera.
+        Warms up sensor for auto-exposure & white balance before saving.
+        """
+        print(f"  [*] Initializing webcam device /dev/video{device_id}...")
+        cap = cv2.VideoCapture(device_id)
+        if not cap.isOpened():
+            raise RuntimeError(f"Could not open camera device /dev/video{device_id}")
+
+        # Warm up camera sensor
+        for _ in range(8):
+            ret, frame = cap.read()
+            if not ret:
+                time.sleep(0.05)
+
+        ret, frame = cap.read()
+        cap.release()
+
+        if not ret or frame is None:
+            raise RuntimeError("Failed to capture image frame from camera.")
+
+        cv2.imwrite(output_path, frame)
+        print(f"  [✓] Live webcam face scan captured: {output_path}")
+        return output_path
 
     def detect_and_crop(self, image_path: str, output_path: Optional[str] = None) -> Tuple[str, Tuple[int, int, int, int], Optional[np.ndarray]]:
         """
@@ -69,7 +95,6 @@ class FaceProcessor:
             detector.setInputSize((w_img, h_img))
             _, faces = detector.detect(img)
             if faces is not None and len(faces) > 0:
-                # Select highest confidence face
                 best_face = max(faces, key=lambda f: f[-1])
                 face_vector = best_face
                 x, y, w, h = int(best_face[0]), int(best_face[1]), int(best_face[2]), int(best_face[3])

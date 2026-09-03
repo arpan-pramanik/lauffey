@@ -98,3 +98,9 @@ Executes the cryptographic test suite (Merkle trees, ECDSA signatures, tamper re
 ```bash
 python test_pipeline.py
 ```
+
+### Live Webcam Hardware Scan
+Initiates an interactive scan using your laptop's integrated camera (`/dev/video0`):
+```bash
+python main.py --camera
+```
