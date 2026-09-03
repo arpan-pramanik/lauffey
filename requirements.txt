@@ -1,0 +1,8 @@
+torch
+torchvision
+deepface
+opencv-python
+pillow
+requests
+web3
+eth-tester[py-evm]
