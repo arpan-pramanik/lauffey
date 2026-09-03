@@ -1,6 +1,7 @@
 import os
 import json
 import hashlib
+import time
 import requests
 from pathlib import Path
 from typing import List, Dict, Any, Optional
@@ -28,7 +29,25 @@ class WebSearcher:
         Uploads local image to a temporary public host so Google Lens can ingest it.
         Uses Litterbox (1 hour auto-delete) or TmpFiles as fallback.
         """
-        # Primary: Litterbox (1 hour expiry)
+        # Primary: tmpfiles.org
+        for attempt in range(2):
+            try:
+                with open(image_path, "rb") as f:
+                    resp = requests.post(
+                        "https://tmpfiles.org/api/v1/upload",
+                        files={"file": f},
+                        timeout=15
+                    )
+                data = resp.json()
+                if data.get("status") == "success":
+                    url = data["data"]["url"]
+                    parts = url.split("tmpfiles.org/")
+                    direct_url = f"https://tmpfiles.org/dl/{parts[1]}"
+                    return direct_url
+            except Exception as e:
+                time.sleep(1)
+
+        # Secondary: Litterbox (1 hour expiry)
         try:
             with open(image_path, "rb") as f:
                 resp = requests.post(
@@ -39,28 +58,10 @@ class WebSearcher:
                 )
             if resp.status_code == 200 and resp.text.startswith("http"):
                 return resp.text.strip()
-        except Exception as e:
-            print(f"[!] Litterbox upload failed ({e}), trying fallback...")
+        except Exception:
+            pass
 
-        # Fallback: tmpfiles.org
-        try:
-            with open(image_path, "rb") as f:
-                resp = requests.post(
-                    "https://tmpfiles.org/api/v1/upload",
-                    files={"file": f},
-                    timeout=15
-                )
-            data = resp.json()
-            if data.get("status") == "success":
-                # Convert https://tmpfiles.org/123/file.jpg to direct link https://tmpfiles.org/dl/123/file.jpg
-                url = data["data"]["url"]
-                parts = url.split("tmpfiles.org/")
-                direct_url = f"https://tmpfiles.org/dl/{parts[1]}"
-                return direct_url
-        except Exception as e:
-            raise RuntimeError(f"Failed to upload image to temporary public host: {e}")
-
-        raise RuntimeError("No image host succeeded.")
+        raise RuntimeError("No image hosting service succeeded in uploading the temporary portrait.")
 
     def search_reverse_image(self, image_path: str, force: bool = False) -> List[Dict[str, Any]]:
         """
@@ -71,29 +72,39 @@ class WebSearcher:
         cache_file = CACHE_DIR / f"lens_search_{img_hash[:16]}.json"
 
         if not force and cache_file.exists():
-            print(f"[*] Reusing cached search result for this image: {cache_file.name}")
+            print(f"  [*] Reusing locally cached search result: {cache_file.name}")
             with open(cache_file, "r", encoding="utf-8") as f:
                 return json.load(f)
 
         if not self.api_key:
             raise ValueError("SERPAPI_KEY is required to perform reverse web search.")
 
-        print("[*] Uploading cropped face to temporary host...")
+        print("  [*] Uploading cropped face to temporary host...")
         public_url = self.upload_to_temp_host(image_path)
-        print(f"[*] Image hosted temporarily at: {public_url}")
+        print(f"  [*] Image hosted temporarily at: {public_url}")
 
-        print("[*] Querying SerpAPI Google Lens...")
+        print("  [*] Querying SerpAPI Google Lens...")
         params = {
             "engine": "google_lens",
             "url": public_url,
             "api_key": self.api_key
         }
 
-        resp = requests.get("https://serpapi.com/search.json", params=params, timeout=30)
-        if resp.status_code != 200:
-            raise RuntimeError(f"SerpAPI request failed ({resp.status_code}): {resp.text}")
+        last_err = None
+        for attempt in range(2):
+            try:
+                resp = requests.get("https://serpapi.com/search.json", params=params, timeout=30)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    break
+                else:
+                    raise RuntimeError(f"SerpAPI returned HTTP {resp.status_code}: {resp.text}")
+            except Exception as e:
+                last_err = e
+                time.sleep(1.5)
+        else:
+            raise RuntimeError(f"SerpAPI request failed: {last_err}")
 
-        data = resp.json()
         raw_matches = data.get("visual_matches", [])
 
         # Filter social media posts
@@ -112,7 +123,7 @@ class WebSearcher:
                     "confidence": "high" if "visual_matches" in data else "medium"
                 })
 
-        # If no specific social matches found, include top visual matches so pipeline doesn't break
+        # Fallback to top visual matches if specific social domains are not direct visual matches
         if not social_posts and raw_matches:
             for match in raw_matches[:3]:
                 social_posts.append({
@@ -123,7 +134,7 @@ class WebSearcher:
                     "confidence": "web-match"
                 })
 
-        # Save to cache to save user quota
+        # Save to cache to safeguard user API quota
         with open(cache_file, "w", encoding="utf-8") as f:
             json.dump(social_posts, f, indent=2)
 
