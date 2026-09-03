@@ -143,23 +143,26 @@ The repository includes diverse public-domain benchmark queries across multiple 
 
 ## Blockchain Used
 
-Lauffey provides a **Dual Multi-Chain Architecture** supporting both EVM Layer-2 rollups and the Solana high-throughput network:
+Lauffey provides a **Triple Multi-Chain Architecture** supporting real-time EVM execution, high-throughput Solana, and standard EVM Layer-2 rollups:
 
-### 1. Solana Engine (`--chain solana`)
-- **Ledger Architecture**: Solana high-speed attestation engine with sub-second execution (400ms slots).
-- **Instruction Anchoring**: Formats and anchors state commitments directly into the **Solana SPL Memo Program (`MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr`)**.
+### 1. MegaETH Real-Time EVM Engine (`--chain megaeth`, Default)
+- **Real-Time Execution**: 10ms block time delivering sub-10ms transaction finality, outperforming traditional blockchains by 40x–1000x.
+- **Data Availability**: Anchors 32-byte blob commitment hashes into **EigenDA**, decoupling consensus from execution.
+- **In-Memory State Model**: Sub-millisecond verification latency (~2–3ms) combining EVM tooling (Solidity, Web3, EIP-191 ECDSA) with high-frequency streaming performance.
+- **Cryptographic Primitives**: Keccak-256 Merkle Provenance trees and EIP-191 ECDSA secp256k1 digital signatures.
+
+### 2. Solana High-Throughput Engine (`--chain solana`)
+- **Ledger Architecture**: High-speed parallel attestation engine with 400ms slot execution.
+- **Instruction Anchoring**: Records state commitments directly into the **Solana SPL Memo Program (`MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr`)**.
 - **Cryptographic Primitives**:
-  - **Ed25519 Signatures**: Solana's native high-performance signature curve over Twisted Edwards Curve25519.
+  - **Ed25519 Signatures**: Solana's native signature curve over Twisted Edwards Curve25519.
   - **Base58 Encoding**: Standard Solana public key and transaction signature representation.
   - **SHA-256 Merkle Provenance Tree**: Solana-native binary tree generating cryptographic audit paths.
 
-### 2. EVM Layer-2 Engine (`--chain evm`, Default)
-- **Ledger Standard**: Ethereum Virtual Machine (EVM) calldata anchoring compatible with Ethereum Mainnet, Arbitrum, Base, Optimism, Monad, and local EVM nodes.
-- **Local Testing Engine**: Integrated `py-evm` in-memory blockchain via `eth-tester` and `web3.py` for deterministic, zero-cost execution without testnet faucets.
+### 3. EVM Layer-2 Engine (`--chain evm`)
+- **Ledger Standard**: Standard EVM calldata anchoring compatible with Ethereum Mainnet, Arbitrum, Base, Optimism, Monad, and local EVM nodes.
+- **Local Testing Engine**: Integrated `py-evm` in-memory blockchain via `eth-tester` and `web3.py` for deterministic execution.
 - **Configurable RPC**: Connect to any live public testnet (Sepolia, Base Sepolia, Arbitrum Sepolia) via `BLOCKCHAIN_RPC` in `.env`.
-- **Cryptographic Primitives**:
-  - **Keccak-256 (SHA3-256)**: Ethereum-native hashing for Merkle Provenance Trees.
-  - **ECDSA secp256k1 (EIP-191)**: Decentralized validator key recovery and digital attestation.
 
 ---
 

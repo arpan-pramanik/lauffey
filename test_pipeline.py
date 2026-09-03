@@ -189,5 +189,40 @@ class TestLauffeyPipeline(unittest.TestCase):
         res = sol.verify_on_chain(tx_sig, tampered)
         self.assertFalse(res["verified"])
 
+    def test_11_megaeth_realtime_merkle_and_eigenda(self):
+        """Verify MegaETH real-time 10ms block execution and EigenDA blob attestation."""
+        from megaeth_verifier import MegaETHVerifier
+        mega = MegaETHVerifier()
+        manifest = mega.build_provenance_manifest(
+            face_embedding=[0.05] * 128,
+            post_url="https://x.com/verified/status/456",
+            post_title="Verified MegaETH post",
+            confidence=0.99
+        )
+        tx_hash = mega.record_on_chain(manifest)
+        self.assertTrue(tx_hash.startswith("0x"))
+        res = mega.verify_on_chain(tx_hash, manifest)
+        self.assertTrue(res["verified"])
+        self.assertEqual(res["blockchain"], "MegaETH")
+        self.assertEqual(res["block_time_ms"], 10.0)
+
+    def test_12_megaeth_tamper_detection(self):
+        """Verify that tampering with any MegaETH claim fails cryptographic verification."""
+        from megaeth_verifier import MegaETHVerifier
+        mega = MegaETHVerifier()
+        manifest = mega.build_provenance_manifest(
+            face_embedding=[0.05] * 128,
+            post_url="https://x.com/verified/status/456",
+            post_title="Verified MegaETH post",
+            confidence=0.99
+        )
+        tx_hash = mega.record_on_chain(manifest)
+        
+        # Tamper with post title
+        tampered = json.loads(json.dumps(manifest))
+        tampered["metadata"]["post_title"] = "Counterfeit title"
+        res = mega.verify_on_chain(tx_hash, tampered)
+        self.assertFalse(res["verified"])
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
