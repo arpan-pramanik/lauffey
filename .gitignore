@@ -1,1 +1,13 @@
-*.pyc\n__pycache__/\n.env\ntemp_*\n*.egg-info/\ndist/\nbuild/\n.deepface/
+*.pyc
+__pycache__/
+.env
+.env.*
+!.env.example
+temp_*
+*.egg-info/
+dist/
+build/
+.deepface/
+venv/
+.venv/
+*.log
