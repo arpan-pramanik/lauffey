@@ -1,7 +1,7 @@
 torch
 torchvision
 deepface
-opencv-python
+opencv-python<5
 pillow
 requests
 web3

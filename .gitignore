@@ -11,3 +11,7 @@ build/
 venv/
 .venv/
 *.log
+.cache/
+models/*.onnx
+test_portrait.jpg
+sample_face.jpg
