@@ -197,6 +197,34 @@ class FaceProcessor:
         cv2.normalize(hist, hist)
         return hist.flatten().tolist(), "Texture-Histogram (128-d Fallback)"
 
+    @staticmethod
+    def compute_perceptual_hash(image_path_or_array, hash_size: int = 8) -> str:
+        """Computes 64-bit difference hash (dHash) for visual image invariance."""
+        if isinstance(image_path_or_array, str):
+            img = cv2.imread(image_path_or_array, cv2.IMREAD_GRAYSCALE)
+        elif len(image_path_or_array.shape) == 3:
+            img = cv2.cvtColor(image_path_or_array, cv2.COLOR_BGR2GRAY)
+        else:
+            img = image_path_or_array
+        if img is None:
+            return "0x0"
+        resized = cv2.resize(img, (hash_size + 1, hash_size), interpolation=cv2.INTER_AREA)
+        diff = resized[:, 1:] > resized[:, :-1]
+        val = sum([2 ** i for (i, v) in enumerate(diff.flatten()) if v])
+        return hex(val)
+
+    @staticmethod
+    def compute_geometry(bbox: Tuple[int, int, int, int]) -> Dict[str, float]:
+        """Extracts spatial aspect ratio and area metrics from bounding box."""
+        x, y, w, h = bbox
+        aspect = round(w / max(1, h), 3)
+        return {
+            "aspect_ratio": aspect,
+            "width": w,
+            "height": h,
+            "area_px": w * h
+        }
+
     def process(self, image_path: str) -> Dict[str, Any]:
         """
         Full biometric extraction with latency metrics and confidence report.
@@ -209,6 +237,9 @@ class FaceProcessor:
         embedding, engine_name = self.extract_embedding(image_path)
         t_embed = time.perf_counter() - t1
 
+        phash = self.compute_perceptual_hash(cropped_path)
+        geom = self.compute_geometry(bbox)
+
         return {
             "original_image": image_path,
             "cropped_image": cropped_path,
@@ -216,6 +247,8 @@ class FaceProcessor:
             "embedding": embedding,
             "embedding_dim": len(embedding),
             "confidence": confidence,
+            "perceptual_hash": phash,
+            "geometry": geom,
             "detect_ms": t_detect * 1000,
             "embed_ms": t_embed * 1000,
             "engine": engine_name,

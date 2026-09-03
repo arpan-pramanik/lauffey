@@ -117,6 +117,8 @@ def main():
     print(f"  [✓] Face localized & cropped: {face_data['cropped_image']}")
     print(f"  [✓] Face Confidence Score   : {face_data['confidence']*100:.1f}%")
     print(f"  [✓] Passive Liveness Score  : {live_res['liveness_score']*100:.1f}% ({live_res['status']})")
+    print(f"  [✓] Perceptual Visual Hash  : {face_data.get('perceptual_hash', 'N/A')}")
+    print(f"  [✓] Facial Spatial Geometry : Aspect {face_data.get('geometry', {}).get('aspect_ratio', 1.0)} | {face_data.get('geometry', {}).get('area_px', 0)} px²")
     print(f"  [✓] Biometric Embedding     : {face_data['embedding_dim']}-d feature vector")
     print(f"  [✓] Detection Latency       : {face_data['detect_ms']:.2f}ms")
     print(f"  [✓] Embedding Latency       : {face_data['embed_ms']:.2f}ms")
@@ -186,7 +188,8 @@ def main():
             "source": target_post.get("source"),
             "similarity": target_post.get("similarity_score", 1.0),
             "engine": target_post.get("engine", "Google Lens"),
-            "liveness_score": live_res["liveness_score"]
+            "liveness_score": live_res["liveness_score"],
+            "perceptual_hash": face_data.get("perceptual_hash", "0x0")
         }
     )
 

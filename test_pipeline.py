@@ -166,7 +166,7 @@ class TestLauffeyPipeline(unittest.TestCase):
             confidence=0.99
         )
         tx_sig = sol.record_on_chain(manifest)
-        self.assertEqual(len(tx_sig), 88)  # Base58 64-byte signature is 87-88 chars
+        self.assertIn(len(tx_sig), [87, 88])  # Base58 64-byte signature is 87-88 chars
         res = sol.verify_on_chain(tx_sig, manifest)
         self.assertTrue(res["verified"])
         self.assertEqual(res["blockchain"], "Solana")
