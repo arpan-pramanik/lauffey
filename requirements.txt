@@ -7,3 +7,5 @@ requests
 web3
 eth-tester[py-evm]
 tf-keras
+cryptography
+base58

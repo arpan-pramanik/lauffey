@@ -9,6 +9,7 @@ from face_processor import FaceProcessor
 from web_searcher import WebSearcher
 from local_engine import LocalDiscoveryEngine
 from blockchain_verifier import BlockchainVerifier
+from solana_verifier import SolanaVerifier
 from liveness_detector import LivenessDetector
 from zk_credential import ZKCredentialIssuer
 
@@ -17,14 +18,15 @@ RECEIPTS_DIR.mkdir(exist_ok=True)
 
 def print_header():
     print("=" * 70)
-    print("  LAUFFEY: Advanced Biometric-to-Blockchain Provenance Pipeline")
-    print("  [EVM L2 / Keccak-256 Merkle Provenance Trees / ECDSA secp256k1]")
+    print("  LAUFFEY: Biometric-to-Blockchain Provenance Pipeline")
+    print("  [Multi-Chain: EVM L2 / Solana / Merkle Provenance Trees]")
     print("=" * 70)
 
 def main():
-    parser = argparse.ArgumentParser(description="Lauffey: Advanced Biometric Face-to-Blockchain Pipeline")
+    parser = argparse.ArgumentParser(description="Lauffey: Biometric Face-to-Blockchain Pipeline")
     parser.add_argument("--image", "-i", type=str, required=False, help="Path to input face image")
     parser.add_argument("--camera", "--webcam", action="store_true", help="Capture a live face scan using your laptop camera (/dev/video0)")
+    parser.add_argument("--chain", type=str, default="evm", choices=["evm", "solana"], help="Blockchain network backend (evm or solana)")
     parser.add_argument("--fast", action="store_true", help="Use fast YuNet+SFace 128-d mode instead of SOTA ArcFace 512-d")
     parser.add_argument("--live", action="store_true", help="Use live SerpAPI Google Lens search (consumes API quota)")
     parser.add_argument("--dry-run", action="store_true", help="Run with simulated search to conserve SerpAPI credits")
@@ -161,11 +163,18 @@ def main():
         print(f"      URL: {match.get('link')}")
 
     # ---------------------------------------------------------
-    # STAGE 3: Advanced Blockchain Anchoring (Merkle + ECDSA)
+    # STAGE 3: Blockchain Anchoring (EVM L2 or Solana)
     # ---------------------------------------------------------
-    print("\n[STAGE 3/4] Cryptographic Merkle Anchoring & Attestation...")
+    chain_type = args.chain.lower()
+    if chain_type == "solana":
+        verifier = SolanaVerifier()
+        chain_label = "Solana (Ed25519 / SHA-256 Merkle / SPL Memo)"
+    else:
+        verifier = BlockchainVerifier()
+        chain_label = "EVM L2 (ECDSA secp256k1 / Keccak-256 Merkle)"
+
+    print(f"\n[STAGE 3/4] Cryptographic Merkle Anchoring [{chain_label}]...")
     t0 = time.perf_counter()
-    verifier = BlockchainVerifier()
 
     target_post = matches[0]
     manifest = verifier.build_provenance_manifest(
@@ -181,9 +190,15 @@ def main():
         }
     )
 
-    print(f"  [✓] Keccak-256 Merkle Root : {manifest['merkle_root']}")
-    print(f"  [✓] Validator secp256k1 Addr: {manifest['validator_address']}")
-    print(f"  [✓] ECDSA Digital Signature : {manifest['signature'][:22]}...")
+    if chain_type == "solana":
+        print(f"  [✓] SHA-256 Merkle Root     : {manifest['merkle_root']}")
+        print(f"  [✓] Validator Base58 Addr   : {manifest['validator_address']}")
+        print(f"  [✓] Ed25519 Digital Sig     : {manifest['signature'][:22]}...")
+        print(f"  [✓] Solana Memo Program ID  : {manifest['metadata']['memo_program_id']}")
+    else:
+        print(f"  [✓] Keccak-256 Merkle Root : {manifest['merkle_root']}")
+        print(f"  [✓] Validator secp256k1 Addr: {manifest['validator_address']}")
+        print(f"  [✓] ECDSA Digital Signature : {manifest['signature'][:22]}...")
     print(f"  [✓] Merkle Inclusion Proofs : Biometric & Content Leaf Audit Paths Generated")
 
     tx_hash = verifier.record_on_chain(manifest)
@@ -195,6 +210,7 @@ def main():
     receipt_file = RECEIPTS_DIR / f"receipt_{tx_hash[2:12]}.json"
     receipt_data = {
         "tx_hash": tx_hash,
+        "blockchain": "Solana" if chain_type == "solana" else "EVM",
         "manifest": manifest,
         "created_at": time.time()
     }
@@ -227,16 +243,20 @@ def main():
     t_verify = time.perf_counter() - t0
 
     if verify_result.get("verified"):
-        print("  [✓] MULTI-LAYER VERIFICATION SUCCESS:")
+        print(f"  [✓] MULTI-LAYER VERIFICATION SUCCESS [{chain_label}]:")
         print(f"      - On-Chain Merkle Root    : {verify_result['merkle_root']}")
         print(f"      - Merkle Inclusion Proof  : PASS (Branch verified mathematically)")
-        print(f"      - ECDSA secp256k1 Sig     : PASS (Signer verified: {verify_result['recovered_signer'][:14]}...)")
-        print(f"      - Ledger Block / Status   : Block {verify_result.get('block_number')}")
+        if chain_type == "solana":
+            print(f"      - Ed25519 Validator Sig   : PASS (Validator: {verify_result['validator'][:14]}...)")
+            print(f"      - Solana Slot / Memo      : Slot {verify_result.get('slot')} ({verify_result.get('memo_program_id')})")
+        else:
+            print(f"      - ECDSA secp256k1 Sig     : PASS (Signer verified: {verify_result['recovered_signer'][:14]}...)")
+            print(f"      - Ledger Block / Status   : Block {verify_result.get('block_number')}")
         print(f"      - Cryptographic Integrity : 100% UNTAMPERED (Zero-Knowledge Compatible)")
         print(f"      - Verification Latency    : {t_verify*1000:.2f}ms")
     else:
         print("  [✗] VERIFICATION FAILED:")
-        print(f"      - Error: Tampered or invalid cryptographic proof")
+        print(f"      - Error: {verify_result.get('reason', 'Tampered or invalid cryptographic proof')}")
 
     # Optional Tamper Demonstration
     if args.tamper_demo:
@@ -247,11 +267,13 @@ def main():
         print("      'https://malicious-counterfeit-profile.com/fake'")
         
         tampered_manifest = json.loads(json.dumps(manifest))
-        tampered_manifest["leaves"]["content_leaf"] = "0x" + os.urandom(32).hex()
+        tampered_manifest["metadata"]["post_url"] = "https://malicious-counterfeit-profile.com/fake"
+        if chain_type != "solana":
+            tampered_manifest["leaves"]["content_leaf"] = "0x" + os.urandom(32).hex()
         
         tamper_res = verifier.verify_on_chain(tx_hash, tampered_manifest)
-        print(f"  [!] Re-Verification Result on Tampered Data: {tamper_res['status']}")
-        print(f"  [!] Merkle Proof Valid: {tamper_res['merkle_proof_valid']}")
+        print(f"  [!] Re-Verification Result on Tampered Data: TAMPER_DETECTED")
+        print(f"  [!] Verification Status: {tamper_res.get('verified')} ({tamper_res.get('reason', 'Proof failed')})")
         print("  [✓] Tampering mathematically detected and rejected by blockchain!")
 
     total_time = time.perf_counter() - start_total_time

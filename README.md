@@ -143,12 +143,22 @@ The repository includes diverse public-domain benchmark queries across multiple 
 
 ## Blockchain Used
 
-Lauffey uses an **EVM-compatible Layer-2 / Modular Data Availability Architecture**:
-- **Ledger Standard**: Ethereum Virtual Machine (EVM) calldata anchoring compatible with Ethereum Mainnet, Arbitrum, Base, Optimism, Monad, and local EVM nodes.
-- **Local Testing Engine**: Integrated `py-evm` in-memory blockchain via `eth-tester` and `web3.py`. This provides zero-cost, instant-finality, deterministic transaction execution without requiring testnet faucets or gas fees during testing.
-- **Configurable RPC**: To connect to a live public testnet (e.g. Sepolia, Arbitrum Sepolia, Base Sepolia), set `BLOCKCHAIN_RPC=https://your-node-endpoint` in `.env`.
+Lauffey provides a **Dual Multi-Chain Architecture** supporting both EVM Layer-2 rollups and the Solana high-throughput network:
+
+### 1. Solana Engine (`--chain solana`)
+- **Ledger Architecture**: Solana high-speed attestation engine with sub-second execution (400ms slots).
+- **Instruction Anchoring**: Formats and anchors state commitments directly into the **Solana SPL Memo Program (`MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr`)**.
 - **Cryptographic Primitives**:
-  - **Keccak-256 (SHA3-256)**: Ethereum-native hashing for Merkle Provenance Trees and leaf commitments.
+  - **Ed25519 Signatures**: Solana's native high-performance signature curve over Twisted Edwards Curve25519.
+  - **Base58 Encoding**: Standard Solana public key and transaction signature representation.
+  - **SHA-256 Merkle Provenance Tree**: Solana-native binary tree generating cryptographic audit paths.
+
+### 2. EVM Layer-2 Engine (`--chain evm`, Default)
+- **Ledger Standard**: Ethereum Virtual Machine (EVM) calldata anchoring compatible with Ethereum Mainnet, Arbitrum, Base, Optimism, Monad, and local EVM nodes.
+- **Local Testing Engine**: Integrated `py-evm` in-memory blockchain via `eth-tester` and `web3.py` for deterministic, zero-cost execution without testnet faucets.
+- **Configurable RPC**: Connect to any live public testnet (Sepolia, Base Sepolia, Arbitrum Sepolia) via `BLOCKCHAIN_RPC` in `.env`.
+- **Cryptographic Primitives**:
+  - **Keccak-256 (SHA3-256)**: Ethereum-native hashing for Merkle Provenance Trees.
   - **ECDSA secp256k1 (EIP-191)**: Decentralized validator key recovery and digital attestation.
 
 ---

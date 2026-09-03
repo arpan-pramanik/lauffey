@@ -155,5 +155,39 @@ class TestLauffeyPipeline(unittest.TestCase):
         is_tampered_valid, _ = ZKCredentialIssuer.verify_credential(tampered_vc)
         self.assertFalse(is_tampered_valid)
 
+    def test_09_solana_merkle_and_ed25519_verification(self):
+        """Verify Solana SHA-256 Merkle tree and Ed25519 signature attestation."""
+        from solana_verifier import SolanaVerifier
+        sol = SolanaVerifier()
+        manifest = sol.build_provenance_manifest(
+            face_embedding=[0.05] * 128,
+            post_url="https://x.com/verified/status/123",
+            post_title="Verified post",
+            confidence=0.99
+        )
+        tx_sig = sol.record_on_chain(manifest)
+        self.assertEqual(len(tx_sig), 88)  # Base58 64-byte signature is 87-88 chars
+        res = sol.verify_on_chain(tx_sig, manifest)
+        self.assertTrue(res["verified"])
+        self.assertEqual(res["blockchain"], "Solana")
+
+    def test_10_solana_tamper_detection(self):
+        """Verify that tampering with any Solana payload fails cryptographic verification."""
+        from solana_verifier import SolanaVerifier
+        sol = SolanaVerifier()
+        manifest = sol.build_provenance_manifest(
+            face_embedding=[0.05] * 128,
+            post_url="https://x.com/verified/status/123",
+            post_title="Verified post",
+            confidence=0.99
+        )
+        tx_sig = sol.record_on_chain(manifest)
+        
+        # Tamper with post URL
+        tampered = json.loads(json.dumps(manifest))
+        tampered["metadata"]["post_url"] = "https://tampered.fake/link"
+        res = sol.verify_on_chain(tx_sig, tampered)
+        self.assertFalse(res["verified"])
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
