@@ -15,3 +15,4 @@ venv/
 models/*.onnx
 test_portrait.jpg
 sample_face.jpg
+receipts/receipt_*.json

@@ -1,0 +1,43 @@
+{
+  "tx_hash": "0x9b4acd9e3bd093e56f894bc8e73a8c08d54a02d1188a5a8654a6742ce5d4ba28",
+  "manifest": {
+    "version": "lauffey-v2-merkle",
+    "merkle_root": "0x77b6090225908e68bef68a9a1bde46dfdd667568dcf3be114dd492c0a254a6d2",
+    "validator_address": "0x3DCD5e2A867b40dd9D6D77ca0Be28E3Da95A5015",
+    "signature": "0x94932e7a3291cc2a5cf72bb474da77a852ee4ef57d630172de221f87c54b9f570bfd4b4e1a64a5a34f23f4a26b46e002a6fb628c8ceda051f57aa82e83e923191c",
+    "timestamp": 1788409597,
+    "leaves": {
+      "biometric_leaf": "0x74877cb9581dce869e110b6e6f1bae0277135d0c60123ebe156265d7278e115a",
+      "content_leaf": "0x9f3ac1ab8d063ad7cf0cbdc9f6f6dc695fb2accc355f80da0a0b3a479e894630",
+      "attestation_leaf": "0xc2f010cf78674d5714845048f404adfe9c32d0d48b798e96e7f864c89ab798d4",
+      "signature_leaf": "0x8e0c329153865028d00ab6f6012770d8c0afddc3636d55454e9a14796ba9c422"
+    },
+    "proofs": {
+      "biometric_inclusion_proof": [
+        {
+          "position": "right",
+          "hash": "0x9f3ac1ab8d063ad7cf0cbdc9f6f6dc695fb2accc355f80da0a0b3a479e894630"
+        },
+        {
+          "position": "right",
+          "hash": "0xd38969a3cab01555f7cfbacb36a383a481d2435234b16092556631802d1bdc62"
+        }
+      ],
+      "content_inclusion_proof": [
+        {
+          "position": "left",
+          "hash": "0x74877cb9581dce869e110b6e6f1bae0277135d0c60123ebe156265d7278e115a"
+        },
+        {
+          "position": "right",
+          "hash": "0xd38969a3cab01555f7cfbacb36a383a481d2435234b16092556631802d1bdc62"
+        }
+      ]
+    },
+    "target_post": {
+      "url": "https://github.com/pettaa123",
+      "title": "pettaa123 (Peter) \u00b7 GitHub"
+    }
+  },
+  "created_at": 1788409597.359412
+}

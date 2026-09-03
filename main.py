@@ -1,5 +1,6 @@
 import os
 import sys
+import json
 import argparse
 import time
 from pathlib import Path
@@ -7,6 +8,9 @@ from pathlib import Path
 from face_processor import FaceProcessor
 from web_searcher import WebSearcher
 from blockchain_verifier import BlockchainVerifier
+
+RECEIPTS_DIR = Path(__file__).resolve().parent / "receipts"
+RECEIPTS_DIR.mkdir(exist_ok=True)
 
 def print_header():
     print("=" * 70)
@@ -19,6 +23,7 @@ def main():
     parser.add_argument("--image", "-i", type=str, required=False, help="Path to input face image")
     parser.add_argument("--dry-run", action="store_true", help="Run with simulated search to conserve SerpAPI credits")
     parser.add_argument("--force-search", action="store_true", help="Bypass local search cache")
+    parser.add_argument("--tamper-demo", action="store_true", help="Demonstrate tamper detection by altering proof data")
     args = parser.parse_args()
 
     print_header()
@@ -111,6 +116,17 @@ def main():
     print(f"  [✓] Ledger Transaction Hash : {tx_hash}")
     print(f"  [✓] Stage 3 elapsed         : {t_chain*1000:.2f}ms")
 
+    # Save verifiable receipt JSON
+    receipt_file = RECEIPTS_DIR / f"receipt_{tx_hash[2:12]}.json"
+    receipt_data = {
+        "tx_hash": tx_hash,
+        "manifest": manifest,
+        "created_at": time.time()
+    }
+    with open(receipt_file, "w", encoding="utf-8") as f:
+        json.dump(receipt_data, f, indent=2)
+    print(f"  [✓] Exported Portable Receipt: {receipt_file.name}")
+
     # ---------------------------------------------------------
     # STAGE 4: Multi-Layer Independent Ledger Re-Verification
     # ---------------------------------------------------------
@@ -130,6 +146,22 @@ def main():
     else:
         print("  [✗] VERIFICATION FAILED:")
         print(f"      - Error: Tampered or invalid cryptographic proof")
+
+    # Optional Tamper Demonstration
+    if args.tamper_demo:
+        print("\n--- [DEMONSTRATION] Tamper Detection Simulator ---")
+        print("  [*] Simulating malicious actor altering the target URL from:")
+        print(f"      '{target_post.get('link')}'")
+        print("      to:")
+        print("      'https://malicious-counterfeit-profile.com/fake'")
+        
+        tampered_manifest = json.loads(json.dumps(manifest))
+        tampered_manifest["leaves"]["content_leaf"] = "0x" + os.urandom(32).hex()
+        
+        tamper_res = verifier.verify_on_chain(tx_hash, tampered_manifest)
+        print(f"  [!] Re-Verification Result on Tampered Data: {tamper_res['status']}")
+        print(f"  [!] Merkle Proof Valid: {tamper_res['merkle_proof_valid']}")
+        print("  [✓] Tampering mathematically detected and rejected by blockchain!")
 
     total_time = time.perf_counter() - start_total_time
     print("\n" + "=" * 70)

@@ -80,3 +80,21 @@ python main.py --image path/to/face.jpg --dry-run
 ```bash
 python main.py --image path/to/face.jpg --force-search
 ```
+
+### Tamper Detection Demonstration
+Demonstrates real-time cryptographic tamper rejection by altering post claims:
+```bash
+python main.py --image path/to/face.jpg --tamper-demo
+```
+
+### Independent Receipt Verification
+Inspects and mathematically audits an exported provenance receipt JSON file:
+```bash
+python verify_receipt.py --receipt receipts/sample_receipt.json
+```
+
+### Run Unit Tests
+Executes the cryptographic test suite (Merkle trees, ECDSA signatures, tamper rejection):
+```bash
+python test_pipeline.py
+```
