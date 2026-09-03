@@ -65,42 +65,55 @@ pip install -r requirements.txt
 
 ## How to Run
 
-### Live End-to-End Pipeline
+### 1. On-Device Biometric Discovery (Default — 0 API Quota Consumed)
+Executes real vector similarity search against the local profile registry on device. Zero external API calls, zero quota burned, executes in ~150ms:
 ```bash
-python main.py --image path/to/face.jpg
+# Default benchmark test (unseen photo of Obama -> matches Obama profile)
+python main.py
+
+# Query with specific test image
+python main.py --image test_images/obama_query.jpg
+python main.py --image test_images/biden_query.jpg
 ```
 
-### Dry-Run Mode (Preserves API Quota)
-Runs full biometric feature extraction, synthetic discovery, Merkle Tree construction, and on-chain verification with 0 API calls:
+### 2. Live Reverse Visual Search (Google Lens via SerpAPI)
+Queries external live web search across social networks (requires `SERPAPI_KEY` in `.env`):
 ```bash
-python main.py --image path/to/face.jpg --dry-run
+python main.py --image test_portrait.jpg --live
 ```
 
-### Force Refresh (Bypass Local Cache)
+### 3. Live Webcam Hardware Scan
+Initiates an interactive scan using your laptop's integrated camera (`/dev/video0`):
 ```bash
-python main.py --image path/to/face.jpg --force-search
+python main.py --camera
 ```
 
-### Tamper Detection Demonstration
+### 4. Tamper Detection Demonstration
 Demonstrates real-time cryptographic tamper rejection by altering post claims:
 ```bash
-python main.py --image path/to/face.jpg --tamper-demo
+python main.py --tamper-demo
 ```
 
-### Independent Receipt Verification
+### 5. Independent Receipt Verification
 Inspects and mathematically audits an exported provenance receipt JSON file:
 ```bash
 python verify_receipt.py --receipt receipts/sample_receipt.json
 ```
 
-### Run Unit Tests
-Executes the cryptographic test suite (Merkle trees, ECDSA signatures, tamper rejection):
+### 6. Run Unit Test Suite
+Executes the full automated cryptographic test suite:
 ```bash
 python test_pipeline.py
 ```
+*(All 6 unit tests pass in ~0.24s)*
 
-### Live Webcam Hardware Scan
-Initiates an interactive scan using your laptop's integrated camera (`/dev/video0`):
-```bash
-python main.py --camera
-```
+---
+
+## Included Test Dataset
+
+| Image Path | Subject | Purpose | Expected Top Match |
+|---|---|---|---|
+| `test_images/obama_query.jpg` | Barack Obama | Query test (unseen lighting/angle) | Barack Obama (`x.com/BarackObama`, sim > 0.70) |
+| `test_images/biden_query.jpg` | Joe Biden | Query test | Joe Biden (`x.com/JoeBiden`, sim ~ 1.0) |
+| `data/profiles/` | Multi-identity gallery | Local gallery of registered profiles | Extracted 128-d biometric vectors |
+

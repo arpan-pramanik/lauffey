@@ -7,6 +7,7 @@ from eth_utils import keccak
 from blockchain_verifier import MerkleTree, BlockchainVerifier
 from face_processor import FaceProcessor
 from web_searcher import WebSearcher
+from local_engine import LocalDiscoveryEngine
 
 class TestLauffeyPipeline(unittest.TestCase):
     def setUp(self):
@@ -78,6 +79,21 @@ class TestLauffeyPipeline(unittest.TestCase):
         self.assertGreater(len(results), 0)
         self.assertIn("link", results[0])
         self.assertIn("title", results[0])
+
+    def test_06_on_device_biometric_discovery_engine(self):
+        """Verify that the local biometric discovery engine accurately identifies test identities."""
+        engine = LocalDiscoveryEngine()
+        self.assertGreater(len(engine.registry), 0)
+
+        # Query with unseen photo of Obama
+        obama_query = "test_images/obama_query.jpg"
+        if os.path.exists(obama_query):
+            matches = engine.search_by_image(obama_query)
+            self.assertGreater(len(matches), 0)
+            top = matches[0]
+            self.assertIn("Obama", top["title"])
+            self.assertGreater(top["similarity_score"], 0.50)
+            self.assertEqual(top["confidence"], "HIGH")
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

@@ -7,6 +7,7 @@ from pathlib import Path
 
 from face_processor import FaceProcessor
 from web_searcher import WebSearcher
+from local_engine import LocalDiscoveryEngine
 from blockchain_verifier import BlockchainVerifier
 
 RECEIPTS_DIR = Path(__file__).resolve().parent / "receipts"
@@ -22,8 +23,9 @@ def main():
     parser = argparse.ArgumentParser(description="Lauffey: Advanced Biometric Face-to-Blockchain Pipeline")
     parser.add_argument("--image", "-i", type=str, required=False, help="Path to input face image")
     parser.add_argument("--camera", "--webcam", action="store_true", help="Capture a live face scan using your laptop camera (/dev/video0)")
+    parser.add_argument("--live", action="store_true", help="Use live SerpAPI Google Lens search (consumes API quota)")
     parser.add_argument("--dry-run", action="store_true", help="Run with simulated search to conserve SerpAPI credits")
-    parser.add_argument("--force-search", action="store_true", help="Bypass local search cache")
+    parser.add_argument("--force-search", action="store_true", help="Bypass local search cache in live mode")
     parser.add_argument("--tamper-demo", action="store_true", help="Demonstrate tamper detection by altering proof data")
     args = parser.parse_args()
 
@@ -33,13 +35,14 @@ def main():
         print("\n[*] Initializing live hardware camera sensor...")
         image_path = FaceProcessor.capture_from_webcam(device_id=0, output_path="webcam_scan.jpg")
     elif not args.image:
-        default_sample = Path("test_portrait.jpg")
+        default_sample = Path("test_images/obama_query.jpg")
         if default_sample.exists():
             image_path = str(default_sample)
-            print(f"[*] No --image provided. Defaulting to: {image_path}")
+            print(f"[*] No --image provided. Defaulting to benchmark test image: {image_path}")
         else:
-            print("[!] Error: Please provide an image path using --image <path/to/image.jpg> or use --camera")
-            sys.exit(1)
+            default_sample = Path("test_portrait.jpg")
+            image_path = str(default_sample)
+            print(f"[*] Defaulting to: {image_path}")
     else:
         image_path = args.image
 
@@ -63,26 +66,33 @@ def main():
     print(f"  [✓] Stage 1 total elapsed   : {t_face*1000:.2f}ms")
 
     # ---------------------------------------------------------
-    # STAGE 2: Reverse Visual Search & Social Discovery
+    # STAGE 2: Web & Social Content Discovery
     # ---------------------------------------------------------
-    print("\n[STAGE 2/4] Social Media & Web Reverse Visual Search...")
     t0 = time.perf_counter()
-    searcher = WebSearcher()
 
-    if args.dry_run:
-        print("  [*] Running in DRY-RUN mode (0 SerpAPI credits used).")
-        matches = searcher.mock_search(face_data["cropped_image"])
-    else:
+    if args.live:
+        print("\n[STAGE 2/4] Live Reverse Visual Search (SerpAPI Google Lens)...")
+        searcher = WebSearcher()
         try:
             matches = searcher.search_reverse_image(face_data["cropped_image"], force=args.force_search)
         except Exception as e:
             print(f"  [!] Live search encountered an issue: {e}")
-            print("  [*] Falling back to synthetic matching to complete pipeline demonstration...")
-            matches = searcher.mock_search(face_data["cropped_image"])
+            print("  [*] Falling back to on-device discovery engine...")
+            local_eng = LocalDiscoveryEngine()
+            matches = local_eng.search_by_embedding(face_data["embedding"])
+    elif args.dry_run:
+        print("\n[STAGE 2/4] Synthetic Discovery Mode (Dry-Run)...")
+        searcher = WebSearcher()
+        matches = searcher.mock_search(face_data["cropped_image"])
+    else:
+        print("\n[STAGE 2/4] On-Device Biometric Discovery Engine (0 API Quota)...")
+        local_eng = LocalDiscoveryEngine()
+        matches = local_eng.search_by_embedding(face_data["embedding"])
 
     t_search = time.perf_counter() - t0
     print(f"  [✓] Matches Discovered: {len(matches)}")
-    print(f"  [✓] Stage 2 elapsed   : {t_search:.2f}s")
+    print(f"  [✓] Discovery Engine  : {matches[0].get('engine', 'Google Lens') if matches else 'None'}")
+    print(f"  [✓] Stage 2 elapsed   : {t_search*1000:.2f}ms" if t_search < 1 else f"  [✓] Stage 2 elapsed   : {t_search:.2f}s")
 
     if not matches:
         print("  [!] No matching social profiles found. Terminating pipeline.")
@@ -90,8 +100,9 @@ def main():
 
     # Display matches
     print("\n--- Discovered Social Content ---")
-    for idx, match in enumerate(matches[:5], 1):
-        print(f"  [{idx}] {match.get('source', 'Web')}: {match.get('title')}")
+    for idx, match in enumerate(matches[:4], 1):
+        sim_str = f" [Similarity: {match.get('similarity_score')}]" if "similarity_score" in match else ""
+        print(f"  [{idx}] {match.get('source', 'Web')}: {match.get('title')}{sim_str}")
         print(f"      URL: {match.get('link')}")
 
     # ---------------------------------------------------------
@@ -107,7 +118,11 @@ def main():
         post_url=target_post.get("link", ""),
         post_title=target_post.get("title", ""),
         confidence=face_data["confidence"],
-        extra_metadata={"source": target_post.get("source")}
+        extra_metadata={
+            "source": target_post.get("source"),
+            "similarity": target_post.get("similarity_score", 1.0),
+            "engine": target_post.get("engine", "Google Lens")
+        }
     )
 
     print(f"  [✓] Keccak-256 Merkle Root : {manifest['merkle_root']}")

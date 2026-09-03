@@ -1,0 +1,38 @@
+[
+  {
+    "id": "barack_obama",
+    "name": "Barack Obama",
+    "image": "data/profiles/obama.jpg",
+    "source": "X (formerly Twitter)",
+    "title": "Reflecting on democracy, civil rights, and community empowerment.",
+    "link": "https://x.com/BarackObama/status/1789721495817294812",
+    "thumbnail": "https://pbs.twimg.com/profile_images/obama.jpg"
+  },
+  {
+    "id": "joe_biden",
+    "name": "Joe Biden",
+    "image": "data/profiles/biden.jpg",
+    "source": "X (formerly Twitter)",
+    "title": "Investing in American infrastructure, clean energy, and future generations.",
+    "link": "https://x.com/JoeBiden/status/1789710928374829103",
+    "thumbnail": "https://pbs.twimg.com/profile_images/biden.jpg"
+  },
+  {
+    "id": "alex_lacamoire",
+    "name": "Alex Lacamoire",
+    "image": "data/profiles/alex.png",
+    "source": "Instagram",
+    "title": "Arranging the orchestration for the new musical score.",
+    "link": "https://www.instagram.com/p/C69mX2bLq91/",
+    "thumbnail": "https://instagram.com/p/sample.jpg"
+  },
+  {
+    "id": "lin_manuel_miranda",
+    "name": "Lin-Manuel Miranda",
+    "image": "data/profiles/lin.png",
+    "source": "X (formerly Twitter)",
+    "title": "Grateful for the incredible Broadway cast and crew tonight!",
+    "link": "https://x.com/Lin_Manuel/status/1789421890123849102",
+    "thumbnail": "https://pbs.twimg.com/profile_images/lin.jpg"
+  }
+]
