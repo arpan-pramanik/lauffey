@@ -15,7 +15,7 @@
 
 ## Hardware Optimization
 Engineered for workstation-class performance:
-- **Processor**: AMD Ryzen 9 9955HX (32 threads) powering concurrent cryptographic hashing and deep inference.
+- **Processor**: High-throughput multi-core architecture powering concurrent cryptographic hashing and deep inference.
 - **Biometric Inference**: SOTA RetinaFace detector and ArcFace 512-d deep residual feature extractor.
 - **Memory**: High-speed memory residency for zero-copy tensor manipulation.
 

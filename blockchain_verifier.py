@@ -269,8 +269,13 @@ class BlockchainVerifier:
         pre_sig_root = MerkleTree([leaf_0, leaf_1, leaf_2]).root
 
         signable = encode_defunct(hexstr=pre_sig_root.hex())
-        recovered_address = Account.recover_message(signable, signature=bytes.fromhex(manifest["signature"][2:]))
-        signature_valid = (recovered_address.lower() == manifest["validator_address"].lower())
+        recovered_address = "0x0000000000000000000000000000000000000000"
+        signature_valid = False
+        try:
+            recovered_address = Account.recover_message(signable, signature=bytes.fromhex(manifest["signature"][2:]))
+            signature_valid = (recovered_address.lower() == manifest["validator_address"].lower())
+        except Exception:
+            signature_valid = False
 
         all_verified = calldata_valid and merkle_proof_valid and signature_valid
 
