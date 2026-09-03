@@ -1,0 +1,1 @@
+*.pyc\n__pycache__/\n.env\ntemp_*\n*.egg-info/\ndist/\nbuild/\n.deepface/
