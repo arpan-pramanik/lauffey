@@ -1,20 +1,22 @@
 # Lauffey: Advanced Biometric-to-Blockchain Provenance Pipeline
 
 **Lauffey** is an end-to-end provenance architecture that:
-1. Takes an input face scan / image.
-2. Localizes and crops facial features with portrait padding using sub-20ms deep learning (OpenCV YuNet + SFace).
-3. Executes a live reverse visual search across the web and social networks (Google Lens via SerpAPI), filtering for real posts on X (Twitter), Facebook, GitHub, Medium, and LinkedIn.
-4. Generates a **Cryptographic Merkle Provenance Tree** using Ethereum-native **Keccak-256 (SHA3-256)** to mathematically bind the biometric vector, content metadata, temporal nonce, and validator identity.
-5. Issues an **ECDSA secp256k1 Digital Signature** (EIP-191 attestation) over the state claims.
-6. Anchors the Merkle Root, audit paths, and attestation into EVM transaction calldata.
-7. Conducts independent multi-layer ledger verification (On-chain transaction proof + mathematical Merkle branch audit + cryptographic signature recovery).
+1. Takes an input face scan / image or captures directly from your laptop's camera (`/dev/video0`).
+2. **Highest-Accuracy Biometric Processing**: Localizes and geometrically aligns faces with **RetinaFace** (5-point landmark regression) and extracts **512-dimensional ArcFace embeddings** (99.83% SOTA accuracy). Supports fast YuNet+SFace mode on demand.
+3. **On-Device Biometric Discovery Engine (`local_engine.py`)**: Executes real vector similarity search against a local gallery of profiles on device with **0 API quota used**.
+4. **Live Visual Search Mode (`--live`)**: Queries Google Lens via SerpAPI across social networks (X, Facebook, GitHub, Medium) with intelligent SHA-256 caching.
+5. Generates a **Cryptographic Merkle Provenance Tree** using Ethereum-native **Keccak-256 (SHA3-256)** to mathematically bind the 512-d biometric vector, content metadata, temporal nonce, and validator identity.
+6. Issues an **ECDSA secp256k1 Digital Signature** (EIP-191 attestation) over the state claims.
+7. Anchors the Merkle Root, audit paths, and attestation into EVM transaction calldata.
+8. Conducts independent multi-layer ledger verification (On-chain transaction proof + mathematical Merkle branch audit + cryptographic signature recovery).
+9. Exports portable, verifiable provenance receipts and provides interactive tamper detection demonstration.
 
 ---
 
 ## Hardware Optimization
 Engineered for workstation-class performance:
-- **Processor**: AMD Ryzen 9 9955HX (32 threads) powering concurrent cryptographic hashing and image operations.
-- **Biometric Inference**: C++ ONNX deep learning engines running in sub-50ms without framework initialization delays.
+- **Processor**: AMD Ryzen 9 9955HX (32 threads) powering concurrent cryptographic hashing and deep inference.
+- **Biometric Inference**: SOTA RetinaFace detector and ArcFace 512-d deep residual feature extractor.
 - **Memory**: High-speed memory residency for zero-copy tensor manipulation.
 
 ---

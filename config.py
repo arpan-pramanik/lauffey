@@ -42,10 +42,9 @@ SOCIAL_DOMAINS = [
     "medium.com"
 ]
 
-# Face processing configurations
-DETECTOR_BACKEND = os.environ.get("DETECTOR_BACKEND", "opencv")
-RECOGNITION_MODEL = os.environ.get("RECOGNITION_MODEL", "Facenet512")
-CROP_MARGIN = 0.20  # 20% margin around the face for optimal Lens matching
+# High-accuracy vs Fast modes
+BIOMETRIC_ACCURACY_MODE = os.environ.get("BIOMETRIC_ACCURACY_MODE", "high")  # 'high' (ArcFace 512-d) or 'fast' (SFace 128-d)
+CROP_MARGIN = 0.20  # 20% margin around the face for optimal visual matching
 
 # Blockchain configuration
-BLOCKCHAIN_RPC = os.environ.get("BLOCKCHAIN_RPC", "tester")  # 'tester' or HTTP RPC URL
+BLOCKCHAIN_RPC = os.environ.get("BLOCKCHAIN_RPC", "tester")

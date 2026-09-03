@@ -5,36 +5,45 @@ from typing import List, Dict, Any, Optional
 
 import numpy as np
 
-from config import BASE_DIR
+from config import BASE_DIR, BIOMETRIC_ACCURACY_MODE
 from face_processor import FaceProcessor
 
 PROFILES_JSON = BASE_DIR / "data" / "profiles.json"
-CACHE_FILE = BASE_DIR / "data" / "embeddings_cache.json"
 
 class LocalDiscoveryEngine:
     """
-    High-speed, 100% on-device biometric search engine.
-    Matches input face feature embeddings against a local gallery of profiles
-    using cosine similarity. Consumes ZERO API credits.
+    Highest-Accuracy on-device biometric search engine.
+    Supports:
+    - 'high' mode: SOTA RetinaFace + ArcFace 512-d embeddings
+    - 'fast' mode: OpenCV YuNet + SFace 128-d embeddings
+    Matches queries via normalized cosine similarity with zero API quota consumption.
     """
-    def __init__(self, profiles_path: Optional[Path] = None):
+    def __init__(self, mode: Optional[str] = None, profiles_path: Optional[Path] = None):
+        self.mode = mode or BIOMETRIC_ACCURACY_MODE
         self.profiles_path = profiles_path or PROFILES_JSON
-        self.face_processor = FaceProcessor()
+        self.face_processor = FaceProcessor(mode=self.mode)
+        
+        if self.mode == "high":
+            self.cache_file = BASE_DIR / "data" / "embeddings_cache_512.json"
+            self.expected_dim = 512
+        else:
+            self.cache_file = BASE_DIR / "data" / "embeddings_cache_128.json"
+            self.expected_dim = 128
+
         self.registry = []
         self._load_and_index()
 
     def _load_and_index(self):
         if not self.profiles_path.exists():
-            print(f"[!] Warning: Local profiles database not found at {self.profiles_path}")
             return
 
         with open(self.profiles_path, "r", encoding="utf-8") as f:
             profiles = json.load(f)
 
         cached_embeddings = {}
-        if CACHE_FILE.exists():
+        if self.cache_file.exists():
             try:
-                with open(CACHE_FILE, "r", encoding="utf-8") as cf:
+                with open(self.cache_file, "r", encoding="utf-8") as cf:
                     cached_embeddings = json.load(cf)
             except Exception:
                 cached_embeddings = {}
@@ -48,15 +57,15 @@ class LocalDiscoveryEngine:
             if not img_path.exists():
                 continue
 
-            # Check if embedding already computed in cache
-            if img_rel in cached_embeddings:
+            if img_rel in cached_embeddings and len(cached_embeddings[img_rel]) == self.expected_dim:
                 emb = cached_embeddings[img_rel]
             else:
                 try:
                     proc_res = self.face_processor.process(str(img_path))
                     emb = proc_res["embedding"]
-                    cached_embeddings[img_rel] = emb
-                    updated_cache = True
+                    if len(emb) == self.expected_dim:
+                        cached_embeddings[img_rel] = emb
+                        updated_cache = True
                 except Exception as e:
                     print(f"[!] Error indexing {img_rel}: {e}")
                     continue
@@ -68,16 +77,17 @@ class LocalDiscoveryEngine:
 
             self.registry.append({
                 "profile": p,
-                "embedding": norm_emb
+                "embedding": norm_emb,
+                "dim": len(norm_emb)
             })
 
         if updated_cache:
-            with open(CACHE_FILE, "w", encoding="utf-8") as cf:
+            with open(self.cache_file, "w", encoding="utf-8") as cf:
                 json.dump(cached_embeddings, cf)
 
-    def search_by_embedding(self, query_embedding: list, min_similarity: float = 0.20) -> List[Dict[str, Any]]:
+    def search_by_embedding(self, query_embedding: list) -> List[Dict[str, Any]]:
         """
-        Executes sub-millisecond vector similarity search against registered identities.
+        Executes vector similarity search against registered identities.
         """
         if not self.registry:
             return []
@@ -90,15 +100,18 @@ class LocalDiscoveryEngine:
         scored = []
         for item in self.registry:
             db_vec = item["embedding"]
+            if len(q_vec) != len(db_vec):
+                continue
             cos_sim = float(np.dot(q_vec, db_vec))
             scored.append((cos_sim, item["profile"]))
 
-        # Sort by similarity descending
+        # Sort descending by similarity
         scored.sort(key=lambda x: x[0], reverse=True)
 
         results = []
         for score, prof in scored:
-            confidence_label = "HIGH" if score > 0.40 else ("MEDIUM" if score > 0.25 else "LOW")
+            confidence_label = "HIGH (MATCH)" if score > 0.40 else ("MEDIUM" if score > 0.25 else "LOW (NO MATCH)")
+            engine_label = f"ArcFace-512 ({self.mode})" if self.expected_dim == 512 else f"SFace-128 ({self.mode})"
             results.append({
                 "title": f"[{prof['name']}] {prof['title']}",
                 "link": prof["link"],
@@ -106,26 +119,22 @@ class LocalDiscoveryEngine:
                 "thumbnail": prof.get("thumbnail", ""),
                 "similarity_score": round(score, 4),
                 "confidence": confidence_label,
-                "engine": "On-Device Biometric Matcher"
+                "vector_dim": len(q_vec),
+                "engine": engine_label
             })
 
         return results
 
     def search_by_image(self, image_path: str) -> List[Dict[str, Any]]:
-        """Convenience method to process an image and search on-device."""
         proc = self.face_processor.process(image_path)
         return self.search_by_embedding(proc["embedding"])
 
 if __name__ == "__main__":
-    engine = LocalDiscoveryEngine()
-    print(f"Indexed {len(engine.registry)} profiles on-device.")
-    # Test query with Obama query image
+    engine = LocalDiscoveryEngine(mode="high")
+    print(f"Indexed {len(engine.registry)} profiles in ArcFace-512 database.")
     query_img = str(BASE_DIR / "test_images" / "obama_query.jpg")
-    print(f"\nTesting on-device search with: {query_img}")
-    t0 = time.perf_counter()
     matches = engine.search_by_image(query_img)
-    t_el = (time.perf_counter() - t0) * 1000
-    print(f"Search completed in: {t_el:.2f}ms")
+    print("\nArcFace 512-d Query Matches:")
     for idx, m in enumerate(matches, 1):
         print(f"  [{idx}] {m['source']}: {m['title']}")
         print(f"      Similarity: {m['similarity_score']} ({m['confidence']}) -> {m['link']}")

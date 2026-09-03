@@ -93,7 +93,7 @@ class TestLauffeyPipeline(unittest.TestCase):
             top = matches[0]
             self.assertIn("Obama", top["title"])
             self.assertGreater(top["similarity_score"], 0.50)
-            self.assertEqual(top["confidence"], "HIGH")
+            self.assertIn("HIGH", top["confidence"])
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

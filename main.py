@@ -23,6 +23,7 @@ def main():
     parser = argparse.ArgumentParser(description="Lauffey: Advanced Biometric Face-to-Blockchain Pipeline")
     parser.add_argument("--image", "-i", type=str, required=False, help="Path to input face image")
     parser.add_argument("--camera", "--webcam", action="store_true", help="Capture a live face scan using your laptop camera (/dev/video0)")
+    parser.add_argument("--fast", action="store_true", help="Use fast YuNet+SFace 128-d mode instead of SOTA ArcFace 512-d")
     parser.add_argument("--live", action="store_true", help="Use live SerpAPI Google Lens search (consumes API quota)")
     parser.add_argument("--dry-run", action="store_true", help="Run with simulated search to conserve SerpAPI credits")
     parser.add_argument("--force-search", action="store_true", help="Bypass local search cache in live mode")
@@ -30,6 +31,7 @@ def main():
     args = parser.parse_args()
 
     print_header()
+    mode = "fast" if args.fast else "high"
 
     if args.camera:
         print("\n[*] Initializing live hardware camera sensor...")
@@ -51,9 +53,10 @@ def main():
     # ---------------------------------------------------------
     # STAGE 1: Face Detection & Biometric Extraction
     # ---------------------------------------------------------
-    print("\n[STAGE 1/4] Biometric Face Processing...")
+    accuracy_label = "HIGHEST ACCURACY (SOTA ArcFace 512-d + RetinaFace)" if mode == "high" else "FAST (YuNet + SFace 128-d)"
+    print(f"\n[STAGE 1/4] Biometric Face Processing [{accuracy_label}]...")
     t0 = time.perf_counter()
-    face_proc = FaceProcessor()
+    face_proc = FaceProcessor(mode=mode)
     face_data = face_proc.process(image_path)
     t_face = time.perf_counter() - t0
 
@@ -78,15 +81,15 @@ def main():
         except Exception as e:
             print(f"  [!] Live search encountered an issue: {e}")
             print("  [*] Falling back to on-device discovery engine...")
-            local_eng = LocalDiscoveryEngine()
+            local_eng = LocalDiscoveryEngine(mode=mode)
             matches = local_eng.search_by_embedding(face_data["embedding"])
     elif args.dry_run:
         print("\n[STAGE 2/4] Synthetic Discovery Mode (Dry-Run)...")
         searcher = WebSearcher()
         matches = searcher.mock_search(face_data["cropped_image"])
     else:
-        print("\n[STAGE 2/4] On-Device Biometric Discovery Engine (0 API Quota)...")
-        local_eng = LocalDiscoveryEngine()
+        print(f"\n[STAGE 2/4] On-Device Biometric Discovery Engine [{accuracy_label}] (0 API Quota)...")
+        local_eng = LocalDiscoveryEngine(mode=mode)
         matches = local_eng.search_by_embedding(face_data["embedding"])
 
     t_search = time.perf_counter() - t0

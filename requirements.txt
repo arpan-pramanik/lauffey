@@ -6,3 +6,4 @@ pillow
 requests
 web3
 eth-tester[py-evm]
+tf-keras
