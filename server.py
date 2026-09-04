@@ -4,11 +4,13 @@ import time
 import json
 import base64
 from pathlib import Path
+from typing import Optional
 from flask import Flask, request, jsonify, send_from_directory, send_file
 
 from face_processor import FaceProcessor
 from liveness_detector import LivenessDetector
 from local_engine import LocalDiscoveryEngine
+from web_searcher import WebSearcher
 from blockchain_verifier import BlockchainVerifier
 from solana_verifier import SolanaVerifier
 from megaeth_verifier import MegaETHVerifier
@@ -20,8 +22,41 @@ PROFILES_DIR = BASE_DIR / "data" / "profiles"
 TEST_DIR = BASE_DIR / "test_images"
 RECEIPTS_DIR = BASE_DIR / "receipts"
 RECEIPTS_DIR.mkdir(exist_ok=True)
+TEMP_DIR = BASE_DIR / "data" / "tmp"
+TEMP_DIR.mkdir(parents=True, exist_ok=True)
+
+ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
+# Only these directories may be selected by path for a scan — prevents
+# arbitrary local file reads via a caller-supplied image_path.
+ALLOWED_SCAN_DIRS = [TEST_DIR.resolve(), PROFILES_DIR.resolve(), TEMP_DIR.resolve()]
 
 app = Flask(__name__, static_folder=str(FRONTEND_DIR), static_url_path="")
+app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024  # 10MB upload cap
+
+
+def _sweep_temp_dir(max_age_sec: int = 300) -> None:
+    """Deletes stale upload/crop derivatives so data/tmp/ doesn't grow unbounded across a session."""
+    now = time.time()
+    for f in TEMP_DIR.glob("*"):
+        try:
+            if f.is_file() and (now - f.stat().st_mtime) > max_age_sec:
+                f.unlink()
+        except OSError:
+            pass
+
+
+def _resolve_scan_path(rel_path: str) -> Optional[Path]:
+    """Resolves a user-supplied image_path and confirms it stays inside an allowed directory."""
+    try:
+        candidate = (BASE_DIR / rel_path).resolve()
+    except (OSError, ValueError):
+        return None
+    if not candidate.exists() or candidate.suffix.lower() not in ALLOWED_IMAGE_EXTENSIONS:
+        return None
+    for allowed_dir in ALLOWED_SCAN_DIRS:
+        if candidate.is_relative_to(allowed_dir):
+            return candidate
+    return None
 
 @app.after_request
 def add_cors_headers(response):
@@ -41,7 +76,7 @@ def serve_image(folder, filename):
     elif folder == "test":
         return send_from_directory(str(TEST_DIR), filename)
     elif folder == "temp":
-        return send_from_directory(str(BASE_DIR), filename)
+        return send_from_directory(str(TEMP_DIR), filename)
     return jsonify({"error": "Folder not found"}), 404
 
 @app.route("/api/status", methods=["GET"])
@@ -101,6 +136,8 @@ def run_scan():
 
     chain_type = req_data.get("chain", "megaeth").lower()
     mode = req_data.get("mode", "fast").lower()
+    # Live web search hits real SerpAPI quota, so it's strictly opt-in from the UI.
+    use_live_search = str(req_data.get("live_search", "")).lower() in {"1", "true", "yes", "on"}
 
     # Determine image input
     target_image_path = None
@@ -108,22 +145,23 @@ def run_scan():
 
     if "file" in request.files:
         uploaded = request.files["file"]
-        ext = Path(uploaded.filename).suffix or ".jpg"
-        temp_path = BASE_DIR / f"temp_upload_{int(time.time()*1000)}{ext}"
+        ext = Path(uploaded.filename or "").suffix.lower() or ".jpg"
+        if ext not in ALLOWED_IMAGE_EXTENSIONS:
+            return jsonify({"success": False, "error": f"Unsupported file type: {ext}"}), 400
+        temp_path = TEMP_DIR / f"temp_upload_{int(time.time()*1000)}{ext}"
         uploaded.save(str(temp_path))
         target_image_path = str(temp_path)
         temp_uploaded = True
     elif "image_path" in req_data:
-        rel_path = req_data["image_path"]
-        p = BASE_DIR / rel_path
-        if p.exists():
-            target_image_path = str(p)
+        resolved = _resolve_scan_path(req_data["image_path"])
+        if resolved:
+            target_image_path = str(resolved)
     elif "image_base64" in req_data:
         b64_str = req_data["image_base64"]
         if "," in b64_str:
             b64_str = b64_str.split(",")[1]
         img_bytes = base64.b64decode(b64_str)
-        temp_path = BASE_DIR / f"temp_upload_{int(time.time()*1000)}.jpg"
+        temp_path = TEMP_DIR / f"temp_upload_{int(time.time()*1000)}.jpg"
         with open(temp_path, "wb") as f:
             f.write(img_bytes)
         target_image_path = str(temp_path)
@@ -134,20 +172,37 @@ def run_scan():
         default_query = TEST_DIR / "alex_query.png"
         target_image_path = str(default_query)
 
+    _sweep_temp_dir()
     try:
         t0 = time.perf_counter()
-        
+
         # 1. Biometric Feature Extraction
         processor = FaceProcessor(mode=mode)
-        face_data = processor.process(target_image_path)
-        
+        face_data = processor.process(target_image_path, crop_output_dir=str(TEMP_DIR))
+
+
         # 2. Passive Presentation Attack Detection (Liveness)
         detector = LivenessDetector()
         liveness_data = detector.analyze(target_image_path)
         
-        # 3. Social Discovery Search
-        engine = LocalDiscoveryEngine(mode=mode)
-        matches = engine.search_by_embedding(face_data["embedding"])
+        # 3. Social Discovery Search: genuine live reverse-image web search when
+        # explicitly requested (consumes SerpAPI quota, cached by image hash),
+        # otherwise the free on-device gallery match (0 API quota).
+        search_mode = "local"
+        if use_live_search:
+            try:
+                searcher = WebSearcher()
+                matches = searcher.search_reverse_image(face_data["cropped_image"])
+                search_mode = "live"
+            except Exception as live_err:
+                print(f"[!] Live search failed, falling back to local gallery: {live_err}")
+                engine = LocalDiscoveryEngine(mode=mode)
+                matches = engine.search_by_embedding(face_data["embedding"])
+                search_mode = "local_fallback"
+        else:
+            engine = LocalDiscoveryEngine(mode=mode)
+            matches = engine.search_by_embedding(face_data["embedding"])
+
         top_match = matches[0] if matches else {
             "title": "No verified match found",
             "source": "Unverified",
@@ -218,6 +273,7 @@ def run_scan():
                 "metrics": liveness_data["metrics"]
             },
             "discovery": {
+                "search_mode": search_mode,
                 "top_match": top_match,
                 "all_matches": matches[:4]
             },
@@ -247,56 +303,53 @@ def run_scan():
 
 @app.route("/api/tamper", methods=["POST"])
 def simulate_tamper():
-    req = request.get_json() or {}
-    manifest = req.get("manifest")
-    tx_hash = req.get("tx_hash")
-    chain_type = req.get("chain", "megaeth").lower()
+    try:
+        req = request.get_json() or {}
+        manifest = req.get("manifest")
+        tx_hash = req.get("tx_hash")
+        chain_type = req.get("chain", "megaeth").lower()
 
-    if not manifest or not tx_hash:
-        return jsonify({"success": False, "error": "Manifest and tx_hash required"}), 400
+        if not manifest or not tx_hash:
+            return jsonify({"success": False, "error": "Manifest and tx_hash required"}), 400
 
-    if chain_type == "solana":
-        verifier = SolanaVerifier()
-        verifier.ledger[tx_hash] = {
-            "signature": tx_hash,
-            "slot": 312850101,
-            "block_time": int(time.time()),
-            "merkle_root": manifest["merkle_root"],
-            "memo_instruction": {},
-            "validator": manifest["validator_address"],
-            "manifest": manifest
-        }
-    elif chain_type == "evm":
-        verifier = BlockchainVerifier()
-        verifier.ledger[tx_hash] = {
-            "tx_hash": tx_hash,
-            "block_number": 1,
-            "merkle_root": manifest["merkle_root"],
-            "validator": manifest["validator_address"],
-            "manifest": manifest
-        }
-    else:
-        verifier = MegaETHVerifier()
-        verifier.ledger[tx_hash] = {
-            "tx_hash": tx_hash,
-            "block_number": 10450201,
-            "block_time_ms": 10.0,
-            "merkle_root": manifest["merkle_root"],
-            "eigenda_blob_commitment": manifest.get("eigenda_blob_commitment", ""),
-            "validator": manifest["validator_address"],
-            "manifest": manifest
-        }
+        if chain_type == "solana":
+            verifier = SolanaVerifier()
+        elif chain_type == "evm":
+            verifier = BlockchainVerifier()
+        else:
+            verifier = MegaETHVerifier()
 
-    tampered_manifest = json.loads(json.dumps(manifest))
-    tampered_manifest["metadata"]["post_url"] = "https://malicious-counterfeit-profile.com/fake"
-    tampered_manifest["leaves"]["social_leaf"] = "0x" + os.urandom(32).hex()
+        # The persisted ledger (loaded on verifier init) should already have
+        # this tx from the original /api/scan call. Only seed a stand-in
+        # record if it's genuinely missing (e.g. ledger file was cleared).
+        if tx_hash not in verifier.ledger:
+            verifier.ledger[tx_hash] = {
+                "tx_hash": tx_hash,
+                "signature": tx_hash,
+                "block_number": 1,
+                "slot": 1,
+                "block_time": int(time.time()),
+                "block_time_ms": 10.0,
+                "merkle_root": manifest["merkle_root"],
+                "eigenda_blob_commitment": manifest.get("eigenda_blob_commitment", ""),
+                "validator": manifest["validator_address"],
+                "manifest": manifest
+            }
 
-    res = verifier.verify_on_chain(tx_hash, tampered_manifest)
-    return jsonify({
-        "tamper_detected": not res.get("verified", False),
-        "status": "REJECTED_BY_BLOCKCHAIN" if not res.get("verified") else "TAMPER_FAILED",
-        "verification_result": res
-    })
+        tampered_manifest = json.loads(json.dumps(manifest))
+        if chain_type == "evm":
+            tampered_manifest["target_post"]["url"] = "https://malicious-counterfeit-profile.com/fake"
+        else:
+            tampered_manifest["metadata"]["post_url"] = "https://malicious-counterfeit-profile.com/fake"
+
+        res = verifier.verify_on_chain(tx_hash, tampered_manifest)
+        return jsonify({
+            "tamper_detected": not res.get("verified", False),
+            "status": "REJECTED_BY_BLOCKCHAIN" if not res.get("verified") else "TAMPER_FAILED",
+            "verification_result": res
+        })
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
 
 @app.route("/api/camera", methods=["POST"])
 def scan_camera():

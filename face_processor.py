@@ -225,12 +225,17 @@ class FaceProcessor:
             "area_px": w * h
         }
 
-    def process(self, image_path: str) -> Dict[str, Any]:
+    def process(self, image_path: str, crop_output_dir: Optional[str] = None) -> Dict[str, Any]:
         """
         Full biometric extraction with latency metrics and confidence report.
+        crop_output_dir, if given, confines the cropped derivative to that
+        directory instead of dropping it next to the source image.
         """
         t0 = time.perf_counter()
-        cropped_path, bbox, confidence = self.detect_and_crop(image_path)
+        crop_out = None
+        if crop_output_dir:
+            crop_out = str(Path(crop_output_dir) / f"temp_cropped_{Path(image_path).name}")
+        cropped_path, bbox, confidence = self.detect_and_crop(image_path, output_path=crop_out)
         t_detect = time.perf_counter() - t0
 
         t1 = time.perf_counter()

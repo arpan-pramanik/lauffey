@@ -1,5 +1,6 @@
 let currentChain = "megaeth";
 let currentMode = "fast";
+let liveSearchEnabled = false;
 let selectedImagePath = "test_images/alex_query.png";
 let lastScanResult = null;
 let webcamStream = null;
@@ -81,12 +82,14 @@ async function executeCurrentScan(fileData = null) {
       formData.append("file", fileData);
       formData.append("chain", currentChain);
       formData.append("mode", currentMode);
+      formData.append("live_search", liveSearchEnabled);
       options = { method: "POST", body: formData };
     } else {
       payload = {
         image_path: selectedImagePath,
         chain: currentChain,
-        mode: currentMode
+        mode: currentMode,
+        live_search: liveSearchEnabled
       };
       options = {
         method: "POST",
@@ -133,7 +136,9 @@ function renderScanResults(data) {
     `Spatial: Aspect ${geom.aspect_ratio || "1.00"} | ${geom.area_px || 0} px² | Latency: ${data.total_elapsed_sec}s`;
 
   // 2. Discovered Social Content
-  document.getElementById("resSocialPlatform").textContent = top.source || "Social Web";
+  const searchModeLabel = { live: "Live Web Search", local_fallback: "Local Gallery (live search failed)", local: "Local Gallery" };
+  const modeTag = searchModeLabel[data.discovery.search_mode] || "Local Gallery";
+  document.getElementById("resSocialPlatform").textContent = `${top.source || "Social Web"} · ${modeTag}`;
   document.getElementById("resSocialTitle").textContent = top.title || "No social claim matched";
   document.getElementById("resSimilarity").textContent = top.similarity_score ? `${(top.similarity_score * 100).toFixed(1)}% Match` : "--";
   document.getElementById("resEngine").textContent = data.face.engine;
@@ -227,6 +232,11 @@ function setMode(mode) {
   document.getElementById("modeFastBtn").classList.toggle("active", mode === "fast");
   document.getElementById("modeHighBtn").classList.toggle("active", mode === "high");
   executeCurrentScan();
+}
+
+// Live Web Search Toggle (opt-in, consumes SerpAPI quota)
+function setLiveSearch(enabled) {
+  liveSearchEnabled = enabled;
 }
 
 // Drag and Drop

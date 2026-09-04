@@ -474,6 +474,22 @@ body {
   color: #fff;
 }
 
+.live-search-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--color-black);
+  cursor: pointer;
+  user-select: none;
+}
+
+.live-search-toggle input[type="checkbox"] {
+  accent-color: var(--color-black);
+  cursor: pointer;
+}
+
 /* Visual Perspective Canvas Area */
 .scanner-dropzone {
   position: relative;

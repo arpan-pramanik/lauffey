@@ -161,6 +161,12 @@
                 <button class="mode-btn" id="modeHighBtn" onclick="setMode('high')">SOTA 512-d</button>
               </div>
             </div>
+            <div class="scanner-header" style="border-top: none; padding-top: 0;">
+              <label class="live-search-toggle" id="liveSearchLabel" title="Uses real SerpAPI Google Lens reverse-image search quota. Off by default; falls back to the free on-device gallery match.">
+                <input type="checkbox" id="liveSearchToggle" onchange="setLiveSearch(this.checked)">
+                <span>Live web search (uses API quota)</span>
+              </label>
+            </div>
 
             <!-- Drag & Drop Viewport -->
             <div class="scanner-dropzone" id="dropzone" onclick="document.getElementById('fileInput').click()">
