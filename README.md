@@ -122,7 +122,7 @@ Executes multi-identity perturbation stress, concurrency throughput, Merkle scal
 python benchmark.py
 ```
 
-### 7. Interactive Web Frontend (units.gr Design Language)
+### 8. Interactive Web Frontend (units.gr Design Language)
 Start the local web server to launch the visual interface:
 ```bash
 python server.py
@@ -130,6 +130,7 @@ python server.py
 ```
 - **Design System**: High-contrast Bauhaus / Neo-Brutalist design language inspired by `units.gr` (blueprint grid canvas, cream floating container, and color-blocked numbered card deck).
 - **Interactive Features**: Drag-and-drop face image dropzone, live webcam trigger, test portrait quick selector, real-time face landmark HUD, passive liveness gauge, and one-click tamper simulation test.
+- **Live web search toggle**: off by default (matches against the free on-device gallery, 0 API quota). Check "Live web search" before scanning to run a genuine SerpAPI Google Lens reverse-image search instead — results are cached by image hash so repeat scans of the same photo don't re-spend quota.
 
 ---
 
@@ -152,34 +153,33 @@ The repository includes diverse public-domain benchmark queries across multiple 
 
 ## Blockchain Used
 
-Lauffey provides a **Triple Multi-Chain Architecture** supporting real-time EVM execution, high-throughput Solana, and standard EVM Layer-2 rollups:
+Lauffey supports three interchangeable chain backends behind the same Merkle-anchoring interface. **By default all three are locally persisted, tamper-evident ledgers, not live public-network connections** — see [Known Limitations](#known-limitations) for exactly what that means and how to point them at a real network.
 
-### 1. MegaETH Real-Time EVM Engine (`--chain megaeth`, Default)
-- **Real-Time Execution**: 10ms block time delivering sub-10ms transaction finality, outperforming traditional blockchains by 40x–1000x.
-- **Data Availability**: Anchors 32-byte blob commitment hashes into **EigenDA**, decoupling consensus from execution.
-- **In-Memory State Model**: Sub-millisecond verification latency (~2–3ms) combining EVM tooling (Solidity, Web3, EIP-191 ECDSA) with high-frequency streaming performance.
+### 1. MegaETH-style Engine (`--chain megaeth`, Default)
+- Modeled on MegaETH's 10ms block time / EigenDA data-availability design.
 - **Cryptographic Primitives**: Keccak-256 Merkle Provenance trees and EIP-191 ECDSA secp256k1 digital signatures.
+- **Ledger**: `data/ledger_megaeth.json`, a locally persisted append-only store (not a connection to the live MegaETH network).
 
-### 2. Solana High-Throughput Engine (`--chain solana`)
-- **Ledger Architecture**: High-speed parallel attestation engine with 400ms slot execution.
-- **Instruction Anchoring**: Records state commitments directly into the **Solana SPL Memo Program (`MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr`)**.
-- **Cryptographic Primitives**:
-  - **Ed25519 Signatures**: Solana's native signature curve over Twisted Edwards Curve25519.
-  - **Base58 Encoding**: Standard Solana public key and transaction signature representation.
-  - **SHA-256 Merkle Provenance Tree**: Solana-native binary tree generating cryptographic audit paths.
+### 2. Solana-style Engine (`--chain solana`)
+- Modeled on Solana's Memo-program anchoring pattern (`MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr`).
+- **Cryptographic Primitives**: Ed25519 signatures, Base58 encoding, SHA-256 Merkle Provenance trees.
+- **Ledger**: `data/ledger_solana.json`, a locally persisted append-only store (not a devnet/mainnet RPC connection — the public devnet faucet was rate-limited when we tested it, see limitations).
 
-### 3. EVM Layer-2 Engine (`--chain evm`)
-- **Ledger Standard**: Standard EVM calldata anchoring compatible with Ethereum Mainnet, Arbitrum, Base, Optimism, Monad, and local EVM nodes.
-- **Local Testing Engine**: Integrated `py-evm` in-memory blockchain via `eth-tester` and `web3.py` for deterministic execution.
-- **Configurable RPC**: Connect to any live public testnet (Sepolia, Base Sepolia, Arbitrum Sepolia) via `BLOCKCHAIN_RPC` in `.env`.
+### 3. EVM Engine (`--chain evm`)
+- **Cryptographic Primitives**: Keccak-256 Merkle trees, ECDSA secp256k1 (EIP-191).
+- **Default mode**: `py-evm`/`eth-tester` in-memory EVM sandbox per process, backed by `data/ledger_evm.json` for cross-process re-verification.
+- **Real mode**: set `BLOCKCHAIN_RPC` in `.env` to a public RPC URL (e.g. a Sepolia endpoint) and `VALIDATOR_PRIVATE_KEY` to a funded key — `record_on_chain` then submits a genuine, block-explorer-checkable transaction instead of using the local ledger.
+
+All three verifiers persist their validator keypair (`data/*_validator_key.json`, gitignored) and their ledger to disk, so a transaction recorded by one process (`python main.py`) is independently re-verifiable by a completely separate process later (`python verify_receipt.py --receipt receipts/&lt;file&gt;.json`) — this is what "re-verifying against the on-chain record" means for the local/simulated backends.
 
 ---
 
 ## Known Limitations
 
-1. **Third-Party API Rate Limits in Live Mode**: Live web search requires SerpAPI credits. If quota is exhausted or network fails, the pipeline automatically falls back to the on-device discovery engine.
-2. **Private Social Media Posts**: Reverse image search only discovers publicly indexed web and social media content. Private accounts (e.g. locked Instagram or private X accounts) cannot be crawled by search engines.
-3. **Extreme Facial Occlusion**: Heavy masks, extreme sunglasses, or severe profile angles (>60° yaw) may degrade biometric landmark detection confidence below verification thresholds.
-4. **L1 State Storage Economics**: Storing raw 512-dimensional floating point vectors directly in Ethereum L1 storage is economically impractical. Lauffey overcomes this limitation by anchoring the 32-byte Merkle Root commitment into transaction calldata, keeping verification costs minimal (<$0.001 on Layer-2 rollups).
-
+1. **Local/simulated ledgers by default, not a live public network.** `megaeth` and `solana` are always locally persisted ledgers (there is no live MegaETH testnet RPC or funded Solana wallet wired in — the public Solana devnet faucet was rate-limited from our environment when we tried). `evm` defaults to the same local pattern but becomes a genuine on-chain submission the moment `BLOCKCHAIN_RPC` + a funded `VALIDATOR_PRIVATE_KEY` are set in `.env`. This is within what the task allows ("public testnet, mainnet, or a local/simulated chain"), and re-verification across separate process runs is real and demonstrable via `verify_receipt.py`.
+2. **Web search is local-gallery by default, live search is opt-in.** `python main.py` with no flags and the web frontend both match against the on-device gallery (`data/profiles.json`, 0 API quota) unless `--live` (CLI) or the "Live web search" toggle (frontend) is used, which calls real SerpAPI Google Lens reverse-image search. This default exists to conserve SerpAPI's limited free quota — pass `--live` or check the toggle to exercise genuine web search.
+3. **Third-Party API Rate Limits in Live Mode**: Live web search requires SerpAPI credits. If quota is exhausted or the network fails, the pipeline logs the failure and falls back to the on-device discovery engine rather than silently returning a fabricated result.
+4. **Private Social Media Posts**: Reverse image search only discovers publicly indexed web and social media content. Private accounts (e.g. locked Instagram or private X accounts) cannot be crawled by search engines.
+5. **Extreme Facial Occlusion**: Heavy masks, extreme sunglasses, or severe profile angles (>60° yaw) may degrade biometric landmark detection confidence below verification thresholds.
+6. **L1 State Storage Economics**: Storing raw 512-dimensional floating point vectors directly in Ethereum L1 storage is economically impractical. Lauffey anchors only the 32-byte Merkle Root commitment (never the raw biometric vector) into transaction calldata, keeping verification costs minimal on a real L2 and privacy-preserving by design.
 
