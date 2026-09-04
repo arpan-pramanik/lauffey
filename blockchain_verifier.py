@@ -8,6 +8,9 @@ from eth_utils import keccak
 from web3 import Web3
 
 from config import BLOCKCHAIN_RPC
+import chain_ledger_store
+
+CHAIN_NAME = "evm"
 
 class MerkleTree:
     """
@@ -76,11 +79,19 @@ class MerkleTree:
 
 class BlockchainVerifier:
     """
-    Advanced 2026-era Blockchain Verification Engine:
+    EVM Blockchain Verification Engine:
     1. Cryptographic Merkle Provenance Tree with Keccak-256 (Ethereum native).
     2. Zero-Knowledge ready Merkle Inclusion Proofs.
     3. Secp256k1 ECDSA Digital Signatures (EIP-191 cryptographic attestation).
     4. EVM transaction calldata anchoring and on-chain verification.
+
+    With BLOCKCHAIN_RPC left at its default ("tester"), transactions run
+    against an in-process py-evm sandbox that does not persist between
+    processes, so re-verification instead consults a locally persisted,
+    tamper-evident JSON ledger (data/ledger_evm.json). Set BLOCKCHAIN_RPC in
+    .env to a real RPC URL (e.g. a public Sepolia endpoint) and
+    VALIDATOR_PRIVATE_KEY to a funded key to anchor genuine, block-explorer
+    checkable transactions instead.
     """
     def __init__(self, rpc_url: Optional[str] = None):
         self.rpc_url = rpc_url or BLOCKCHAIN_RPC
@@ -88,6 +99,7 @@ class BlockchainVerifier:
         self._is_tester = False
         self._init_validator_identity()
         self._init_web3()
+        self.ledger: Dict[str, Dict[str, Any]] = chain_ledger_store.load_ledger(CHAIN_NAME)
 
     def _init_validator_identity(self):
         """Initializes or derives an ECDSA secp256k1 cryptographic validator keypair."""
@@ -95,7 +107,12 @@ class BlockchainVerifier:
         if pk:
             self.validator = Account.from_key(pk)
         else:
-            self.validator = Account.create()
+            saved_hex = chain_ledger_store.load_key_material("evm_validator_key")
+            if saved_hex:
+                self.validator = Account.from_key(saved_hex)
+            else:
+                self.validator = Account.create()
+                chain_ledger_store.save_key_material("evm_validator_key", self.validator.key.hex())
 
     def _init_web3(self):
         try:
@@ -132,12 +149,14 @@ class BlockchainVerifier:
         }, sort_keys=True).encode()
         leaf_0 = keccak(leaf_0_data)
 
-        # Leaf 1: Content claim
+        # Leaf 1: Content claim. Deliberately hashes only the human-checkable
+        # url/title (not the free-form extra_metadata dict) so a verifier can
+        # independently recompute this leaf from manifest["target_post"] alone
+        # and catch any tampering of the displayed post claim.
         leaf_1_data = json.dumps({
             "claim": "social_discovery",
             "url": post_url.strip(),
-            "title": post_title.strip(),
-            "metadata": extra_metadata or {}
+            "title": post_title.strip()
         }, sort_keys=True).encode()
         leaf_1 = keccak(leaf_1_data)
 
@@ -222,10 +241,21 @@ class BlockchainVerifier:
                 tx_payload["gasPrice"] = self._w3.eth.gas_price
 
             tx_hash_bytes = self._w3.eth.send_transaction(tx_payload)
-            return self._w3.to_hex(tx_hash_bytes)
+            tx_hash = self._w3.to_hex(tx_hash_bytes)
+        else:
+            # No live RPC connection: anchor into the local persistent ledger instead.
+            tx_hash = "0x" + keccak(tx_data.encode() + os.urandom(16)).hex()
 
-        # Fallback simulation
-        return "0x" + keccak(tx_data.encode()).hex()
+        record = {
+            "tx_hash": tx_hash,
+            "merkle_root": merkle_root,
+            "validator": manifest["validator_address"],
+            "is_tester": self._is_tester or not (self._w3 is not None and self._w3.is_connected()),
+            "manifest": manifest
+        }
+        self.ledger[tx_hash] = record
+        chain_ledger_store.append_record(CHAIN_NAME, tx_hash, record)
+        return tx_hash
 
     def verify_on_chain(self, tx_hash: str, manifest: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -238,10 +268,13 @@ class BlockchainVerifier:
         merkle_root = manifest["merkle_root"]
         expected_root_bytes = bytes.fromhex(merkle_root[2:])
 
-        # 1. On-chain query
+        # 1. On-chain / ledger query. Fails closed: a lookup error or missing
+        # record means the calldata is NOT considered valid (never silently
+        # treated as passing).
         block_num = 1
         calldata_valid = False
-        if self._w3 is not None and self._w3.is_connected():
+        calldata_reason = ""
+        if self._w3 is not None and self._w3.is_connected() and not self._is_tester:
             try:
                 tx = self._w3.eth.get_transaction(tx_hash)
                 raw_input = tx["input"]
@@ -251,13 +284,39 @@ class BlockchainVerifier:
                 parsed = json.loads(stored_text)
                 calldata_valid = (parsed.get("merkle_root") == merkle_root)
                 block_num = tx.get("blockNumber", 1)
-            except Exception:
-                calldata_valid = True
+                if not calldata_valid:
+                    calldata_reason = "On-chain calldata merkle root does not match manifest"
+            except Exception as e:
+                calldata_reason = f"Could not confirm transaction on-chain: {e}"
         else:
-            calldata_valid = True
+            # Local/tester mode: consult the persisted ledger (data/ledger_evm.json)
+            # rather than the ephemeral in-process eth-tester state.
+            record = self.ledger.get(tx_hash) or chain_ledger_store.load_ledger(CHAIN_NAME).get(tx_hash)
+            if record and record.get("merkle_root") == merkle_root:
+                calldata_valid = True
+            else:
+                calldata_reason = "Transaction not found in persisted local ledger"
 
-        # 2. Cryptographic Merkle Inclusion Proof Validation
-        content_leaf = bytes.fromhex(manifest["leaves"]["content_leaf"][2:])
+        # 2. Recompute the content leaf independently from the manifest's own
+        # claims (never trust the caller-supplied leaf hash) so a tampered
+        # post_url/title is caught even if leaves.content_leaf was left alone.
+        recomputed_leaf_1_data = json.dumps({
+            "claim": "social_discovery",
+            "url": manifest["target_post"]["url"].strip(),
+            "title": manifest["target_post"]["title"].strip()
+        }, sort_keys=True).encode()
+        content_leaf = keccak(recomputed_leaf_1_data)
+        stored_content_leaf = bytes.fromhex(manifest["leaves"]["content_leaf"][2:])
+        if content_leaf != stored_content_leaf:
+            return {
+                "verified": False,
+                "tx_hash": tx_hash,
+                "merkle_root": merkle_root,
+                "merkle_proof_valid": False,
+                "signature_valid": False,
+                "reason": "Post content does not match its committed leaf hash (tampered)",
+                "status": "TAMPER_DETECTED"
+            }
         content_proof = manifest["proofs"]["content_inclusion_proof"]
         merkle_proof_valid = MerkleTree.verify_proof(content_leaf, content_proof, expected_root_bytes)
 
@@ -284,6 +343,8 @@ class BlockchainVerifier:
             "tx_hash": tx_hash,
             "block_number": block_num,
             "merkle_root": merkle_root,
+            "calldata_valid": calldata_valid,
+            "reason": calldata_reason if not calldata_valid else "",
             "merkle_proof_valid": merkle_proof_valid,
             "signature_valid": signature_valid,
             "validator_address": manifest["validator_address"],

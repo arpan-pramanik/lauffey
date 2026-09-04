@@ -19,3 +19,6 @@ receipts/receipt_*.json
 webcam_scan.jpg
 */temp_*
 receipts/credential_*.json
+data/ledger_*.json
+data/*_validator_key.json
+data/tmp/

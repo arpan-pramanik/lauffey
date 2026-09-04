@@ -6,6 +6,10 @@ from eth_utils import keccak
 from eth_account.messages import encode_defunct
 from eth_account import Account
 
+import chain_ledger_store
+
+CHAIN_NAME = "megaeth"
+
 class MegaETHMerkleTree:
     """
     Binary Merkle Tree using Keccak-256 (EVM / MegaETH Native).
@@ -68,18 +72,30 @@ class MegaETHMerkleTree:
 
 class MegaETHVerifier:
     """
-    MegaETH Real-Time EVM Attestation Engine (10ms Block Time / 100k+ TPS).
-    Features in-memory state execution, EigenDA data availability commitments,
-    Keccak-256 Merkle Provenance trees, and EIP-191 ECDSA secp256k1 signatures.
+    MegaETH-style Attestation Engine, modeled on MegaETH's 10ms block time /
+    EigenDA data-availability design (Keccak-256 Merkle Provenance trees,
+    EIP-191 ECDSA secp256k1 signatures).
+
+    Ledger is a locally persisted, tamper-evident append-only JSON store
+    (data/ledger_megaeth.json) rather than a live connection to the MegaETH
+    network, so records survive across separate process runs and can be
+    independently re-verified later. To anchor against a real MegaETH RPC
+    endpoint instead, point record_on_chain at its JSON-RPC `eth_sendTransaction`
+    the same way blockchain_verifier.py does for EVM L2s.
     """
     def __init__(self, private_key_hex: str = None):
         if private_key_hex:
             self.account = Account.from_key(private_key_hex)
         else:
-            self.account = Account.create()
+            saved_hex = chain_ledger_store.load_key_material("megaeth_validator_key")
+            if saved_hex:
+                self.account = Account.from_key(saved_hex)
+            else:
+                self.account = Account.create()
+                chain_ledger_store.save_key_material("megaeth_validator_key", self.account.key.hex())
         self.validator_address = self.account.address
-        self.ledger: Dict[str, Dict[str, Any]] = {}
-        self.current_block = 10_450_200
+        self.ledger: Dict[str, Dict[str, Any]] = chain_ledger_store.load_ledger(CHAIN_NAME)
+        self.current_block = 10_450_200 + len(self.ledger)
         self.block_time_ms = 10.0  # MegaETH 10ms block interval
 
     def hash_biometric_embedding(self, embedding: list) -> str:
@@ -112,7 +128,7 @@ class MegaETHVerifier:
             "timestamp_ns": t_now_ns,
             "validator": self.validator_address,
             "confidence": round(float(confidence), 4),
-            "network": "MegaETH-Realtime-EVM",
+            "network": "megaeth-local-persistent-ledger",
             "block_time_ms": self.block_time_ms,
             "da_layer": "EigenDA",
             "liveness_score": meta.get("liveness_score", 1.0),
@@ -171,12 +187,12 @@ class MegaETHVerifier:
 
     def record_on_chain(self, manifest: Dict[str, Any]) -> str:
         """
-        Simulates in-memory MegaETH real-time calldata anchoring with 10ms block finality.
+        Anchors calldata into the local persistent ledger with 10ms-block-time-style metadata.
         """
         self.current_block += 1
         tx_hash = "0x" + os.urandom(32).hex()
 
-        self.ledger[tx_hash] = {
+        record = {
             "tx_hash": tx_hash,
             "block_number": self.current_block,
             "block_time_ms": self.block_time_ms,
@@ -185,15 +201,18 @@ class MegaETHVerifier:
             "validator": manifest["validator_address"],
             "manifest": manifest
         }
+        self.ledger[tx_hash] = record
+        chain_ledger_store.append_record(CHAIN_NAME, tx_hash, record)
         return tx_hash
 
     def verify_on_chain(self, tx_hash: str, manifest: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Executes real-time multi-layer verification on MegaETH.
+        Executes multi-layer verification against the persisted MegaETH-style ledger,
+        independent of the process that wrote it.
         """
-        record = self.ledger.get(tx_hash)
+        record = self.ledger.get(tx_hash) or chain_ledger_store.load_ledger(CHAIN_NAME).get(tx_hash)
         if not record:
-            return {"verified": False, "reason": "Transaction not found on MegaETH node"}
+            return {"verified": False, "reason": "Transaction not found in persisted MegaETH ledger"}
 
         # 1. On-chain Merkle Root Match
         if record["merkle_root"].lower() != manifest["merkle_root"].lower():
@@ -226,6 +245,7 @@ class MegaETHVerifier:
         return {
             "verified": True,
             "blockchain": "MegaETH",
+            "status": "CONFIRMED & CRYPTOGRAPHICALLY SECURED",
             "block_number": record["block_number"],
             "block_time_ms": record["block_time_ms"],
             "merkle_root": record["merkle_root"],

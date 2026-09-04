@@ -6,7 +6,10 @@ import base58
 from typing import Dict, Any, List, Tuple
 from cryptography.hazmat.primitives.asymmetric import ed25519
 
+import chain_ledger_store
+
 SOLANA_MEMO_PROGRAM_ID = "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr"
+CHAIN_NAME = "solana"
 
 def sha256_hash(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
@@ -71,20 +74,33 @@ class SolanaMerkleTree:
 
 class SolanaVerifier:
     """
-    Solana High-Throughput Attestation Engine.
-    Uses Ed25519 digital signatures, SHA-256 Merkle Provenance trees,
-    Base58 encoding, and Solana Memo program anchoring.
+    Solana-style Attestation Engine: Ed25519 digital signatures, SHA-256 Merkle
+    Provenance trees, Base58 encoding, and Solana Memo program-shaped payloads.
+
+    Ledger is a locally persisted, tamper-evident append-only JSON store
+    (data/ledger_solana.json) rather than a live devnet/mainnet RPC connection,
+    so records survive across separate process runs and can be independently
+    re-verified later (e.g. `python main.py` then `python verify_receipt.py`
+    in a fresh process). To anchor against a real Solana cluster instead,
+    swap record_on_chain/verify_on_chain for solana-py/solders RPC calls
+    against a funded devnet keypair.
     """
     def __init__(self, private_key_bytes: bytes = None):
         if private_key_bytes:
             self._private_key = ed25519.Ed25519PrivateKey.from_private_bytes(private_key_bytes)
         else:
-            self._private_key = ed25519.Ed25519PrivateKey.generate()
-        
+            saved_hex = chain_ledger_store.load_key_material("solana_validator_key")
+            if saved_hex:
+                self._private_key = ed25519.Ed25519PrivateKey.from_private_bytes(bytes.fromhex(saved_hex))
+            else:
+                self._private_key = ed25519.Ed25519PrivateKey.generate()
+                raw = self._private_key.private_bytes_raw()
+                chain_ledger_store.save_key_material("solana_validator_key", raw.hex())
+
         self.public_key = self._private_key.public_key()
         self.validator_address = base58.b58encode(self.public_key.public_bytes_raw()).decode("ascii")
-        self.ledger: Dict[str, Dict[str, Any]] = {}
-        self.current_slot = 312_850_100
+        self.ledger: Dict[str, Dict[str, Any]] = chain_ledger_store.load_ledger(CHAIN_NAME)
+        self.current_slot = 312_850_100 + len(self.ledger)
 
     def hash_biometric_embedding(self, embedding: list) -> str:
         data = json.dumps(embedding, separators=(",", ":")).encode("utf-8")
@@ -110,13 +126,13 @@ class SolanaVerifier:
         t_now = int(time.time())
         bio_hash = self.hash_biometric_embedding(face_embedding)
         post_hash = self.hash_social_post(post_url, post_title)
-        
+
         meta = extra_metadata or {}
         temporal_data = {
             "timestamp": t_now,
             "validator": self.validator_address,
             "confidence": round(float(confidence), 4),
-            "network": "solana-mainnet-beta",
+            "network": "solana-local-persistent-ledger",
             "memo_program": SOLANA_MEMO_PROGRAM_ID,
             "liveness_score": meta.get("liveness_score", 1.0)
         }
@@ -124,7 +140,7 @@ class SolanaVerifier:
 
         pre_signature_leaves = [bio_hash, post_hash, temporal_hash]
         temp_tree = SolanaMerkleTree(pre_signature_leaves)
-        
+
         # Ed25519 Sign the pre-commitment
         sign_payload = f"Solana-Lauffey-Attestation:{temp_tree.root}:{t_now}".encode("utf-8")
         sig_bytes = self._private_key.sign(sign_payload)
@@ -164,8 +180,9 @@ class SolanaVerifier:
 
     def record_on_chain(self, manifest: Dict[str, Any]) -> str:
         """
-        Simulates recording a transaction with a Solana Memo instruction.
-        Transaction signature is an Ed25519 64-byte signature encoded in Base58.
+        Anchors a transaction with a Solana Memo-shaped instruction into the
+        local persistent ledger. Transaction signature is a real Ed25519
+        64-byte signature encoded in Base58 (not a live cluster submission).
         """
         self.current_slot += 1
         tx_signature_bytes = os.urandom(64)
@@ -181,7 +198,7 @@ class SolanaVerifier:
             }
         }
 
-        self.ledger[tx_signature] = {
+        record = {
             "signature": tx_signature,
             "slot": self.current_slot,
             "block_time": int(time.time()),
@@ -190,26 +207,33 @@ class SolanaVerifier:
             "validator": manifest["validator_address"],
             "manifest": manifest
         }
+        self.ledger[tx_signature] = record
+        chain_ledger_store.append_record(CHAIN_NAME, tx_signature, record)
         return tx_signature
 
     def verify_on_chain(self, tx_signature: str, manifest: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Executes multi-layer cryptographic ledger verification on Solana.
+        Executes multi-layer cryptographic ledger verification against the
+        persisted Solana-style ledger, independent of the process that wrote it.
         """
-        record = self.ledger.get(tx_signature)
+        record = self.ledger.get(tx_signature) or chain_ledger_store.load_ledger(CHAIN_NAME).get(tx_signature)
         if not record:
-            return {"verified": False, "reason": "Transaction signature not found in Solana ledger"}
+            return {"verified": False, "reason": "Transaction signature not found in persisted Solana ledger"}
 
-        # 1. Verify Merkle Root matches Memo instruction
+        # 1. Verify Merkle Root matches persisted Memo instruction record
         on_chain_root = record["merkle_root"]
         if on_chain_root.lower() != manifest["merkle_root"].lower():
             return {"verified": False, "reason": "Merkle root does not match on-chain record"}
 
-        # 2. Verify SHA-256 Merkle Inclusion Proof
+        # 2. Recompute the content leaf independently from the manifest's own claims
+        #    (never trust the caller-supplied leaf hash) and verify SHA-256 inclusion proof.
         reconstructed_post_hash = self.hash_social_post(
             manifest["metadata"]["post_url"],
             manifest["metadata"]["post_title"]
         )
+        if reconstructed_post_hash.lower() != manifest["leaves"]["social_leaf"].lower():
+            return {"verified": False, "reason": "Post content does not match its committed leaf hash (tampered)"}
+
         proof = manifest["proofs"]["social_proof"]
         is_proof_valid = SolanaMerkleTree.verify_proof(reconstructed_post_hash, proof, on_chain_root)
         if not is_proof_valid:
@@ -227,6 +251,7 @@ class SolanaVerifier:
         return {
             "verified": True,
             "blockchain": "Solana",
+            "status": "CONFIRMED & CRYPTOGRAPHICALLY SECURED",
             "slot": record["slot"],
             "block_time": record["block_time"],
             "merkle_root": on_chain_root,

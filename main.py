@@ -171,13 +171,14 @@ def main():
     chain_type = args.chain.lower()
     if chain_type == "megaeth":
         verifier = MegaETHVerifier()
-        chain_label = "MegaETH Real-Time EVM (10ms Block Time / EigenDA)"
+        chain_label = "MegaETH-style local persistent ledger (Keccak-256 / ECDSA)"
     elif chain_type == "solana":
         verifier = SolanaVerifier()
-        chain_label = "Solana (Ed25519 / SHA-256 Merkle / SPL Memo)"
+        chain_label = "Solana-style local persistent ledger (Ed25519 / SHA-256 Merkle)"
     else:
         verifier = BlockchainVerifier()
-        chain_label = "EVM L2 (ECDSA secp256k1 / Keccak-256 Merkle)"
+        is_real_rpc = getattr(verifier, "_w3", None) is not None and verifier._w3.is_connected() and not verifier._is_tester
+        chain_label = "EVM (live RPC)" if is_real_rpc else "EVM local persistent ledger (ECDSA secp256k1 / Keccak-256 Merkle)"
 
     print(f"\n[STAGE 3/4] Cryptographic Merkle Anchoring [{chain_label}]...")
     t0 = time.perf_counter()
@@ -221,9 +222,10 @@ def main():
 
     # Save verifiable receipt JSON
     receipt_file = RECEIPTS_DIR / f"receipt_{tx_hash[2:12]}.json"
+    blockchain_names = {"megaeth": "MegaETH", "solana": "Solana", "evm": "EVM"}
     receipt_data = {
         "tx_hash": tx_hash,
-        "blockchain": manifest["metadata"].get("blockchain", "EVM"),
+        "blockchain": blockchain_names.get(chain_type, "EVM"),
         "manifest": manifest,
         "created_at": time.time()
     }
@@ -284,10 +286,14 @@ def main():
         print("      'https://malicious-counterfeit-profile.com/fake'")
         
         tampered_manifest = json.loads(json.dumps(manifest))
-        tampered_manifest["metadata"]["post_url"] = "https://malicious-counterfeit-profile.com/fake"
-        if chain_type != "solana":
-            tampered_manifest["leaves"]["content_leaf"] = "0x" + os.urandom(32).hex()
-        
+        if chain_type == "evm":
+            # EVM manifests carry the post claim under target_post, and
+            # verify_on_chain recomputes its content leaf independently, so
+            # mutating the claimed URL alone is enough to trigger rejection.
+            tampered_manifest["target_post"]["url"] = "https://malicious-counterfeit-profile.com/fake"
+        else:
+            tampered_manifest["metadata"]["post_url"] = "https://malicious-counterfeit-profile.com/fake"
+
         tamper_res = verifier.verify_on_chain(tx_hash, tampered_manifest)
         print(f"  [!] Re-Verification Result on Tampered Data: TAMPER_DETECTED")
         print(f"  [!] Verification Status: {tamper_res.get('verified')} ({tamper_res.get('reason', 'Proof failed')})")
