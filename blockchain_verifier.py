@@ -12,6 +12,15 @@ import chain_ledger_store
 
 CHAIN_NAME = "evm"
 
+# Block explorer URL templates for chain IDs judges are likely to fund a
+# validator key on. Falls back to no link for unrecognized chain IDs.
+EXPLORER_TX_URL_TEMPLATES = {
+    1: "https://etherscan.io/tx/{tx_hash}",
+    11155111: "https://sepolia.etherscan.io/tx/{tx_hash}",
+    84532: "https://sepolia.basescan.org/tx/{tx_hash}",
+    421614: "https://sepolia.arbiscan.io/tx/{tx_hash}",
+}
+
 class MerkleTree:
     """
     Cryptographic Binary Merkle Tree implementation using Keccak-256 (SHA3-256).
@@ -100,6 +109,21 @@ class BlockchainVerifier:
         self._init_validator_identity()
         self._init_web3()
         self.ledger: Dict[str, Dict[str, Any]] = chain_ledger_store.load_ledger(CHAIN_NAME)
+
+    def is_live_chain(self) -> bool:
+        """True only when connected to a real, non-tester EVM node."""
+        return self._w3 is not None and not self._is_tester and self._w3.is_connected()
+
+    def explorer_tx_url(self, tx_hash: str) -> Optional[str]:
+        """Returns a public block explorer link for tx_hash, if the connected chain is a recognized live network."""
+        if not self.is_live_chain():
+            return None
+        try:
+            chain_id = self._w3.eth.chain_id
+        except Exception:
+            return None
+        template = EXPLORER_TX_URL_TEMPLATES.get(chain_id)
+        return template.format(tx_hash=tx_hash) if template else None
 
     def _init_validator_identity(self):
         """Initializes or derives an ECDSA secp256k1 cryptographic validator keypair."""

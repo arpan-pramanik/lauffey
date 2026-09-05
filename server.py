@@ -212,15 +212,16 @@ def run_scan():
         }
 
         # 4. Cryptographic Blockchain Anchoring
+        explorer_url = None
         if chain_type == "solana":
             verifier = SolanaVerifier()
-            chain_label = "Solana (Ed25519 / SPL Memo)"
+            chain_label = "Solana local persistent ledger (Ed25519 / SPL Memo)"
         elif chain_type == "evm":
             verifier = BlockchainVerifier()
-            chain_label = "EVM L2 (ECDSA secp256k1)"
+            chain_label = "EVM (live RPC)" if verifier.is_live_chain() else "EVM local persistent ledger (ECDSA secp256k1)"
         else:
             verifier = MegaETHVerifier()
-            chain_label = "MegaETH Real-Time EVM (10ms Finality)"
+            chain_label = "MegaETH-style local persistent ledger (10ms Finality)"
 
         manifest = verifier.build_provenance_manifest(
             face_embedding=face_data["embedding"],
@@ -237,6 +238,8 @@ def run_scan():
 
         tx_hash = verifier.record_on_chain(manifest)
         verify_res = verifier.verify_on_chain(tx_hash, manifest)
+        if chain_type == "evm":
+            explorer_url = verifier.explorer_tx_url(tx_hash)
 
         # 5. Issue W3C Verifiable Credential
         issuer = ZKCredentialIssuer()
@@ -285,7 +288,9 @@ def run_scan():
                 "verified": verify_res.get("verified", False),
                 "block_number": verify_res.get("block_number") or verify_res.get("slot"),
                 "block_time_ms": verify_res.get("block_time_ms", 400.0 if chain_type == "solana" else 1000.0),
-                "eigenda_blob": manifest.get("eigenda_blob_commitment")
+                "eigenda_blob": manifest.get("eigenda_blob_commitment"),
+                "is_live": chain_type == "evm" and explorer_url is not None,
+                "explorer_url": explorer_url
             },
             "manifest": manifest,
             "verifiable_credential": cred_bundle["verifiable_credential"]

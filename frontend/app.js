@@ -160,6 +160,14 @@ function renderScanResults(data) {
   document.getElementById("resMerkleRoot").textContent = `Root: ${bc.merkle_root}`;
   document.getElementById("resTxHash").textContent = `TX: ${bc.tx_hash}`;
 
+  const explorerLink = document.getElementById("resExplorerLink");
+  if (bc.is_live && bc.explorer_url) {
+    explorerLink.href = bc.explorer_url;
+    explorerLink.style.display = "inline-flex";
+  } else {
+    explorerLink.style.display = "none";
+  }
+
   // 4. Update Face HUD overlay if bbox exists
   if (data.face.bbox && data.face.cropped_image) {
     const box = document.getElementById("faceBoxOverlay");
