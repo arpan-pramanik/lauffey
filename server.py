@@ -135,7 +135,7 @@ def run_scan():
         req_data = request.get_json() or {}
 
     chain_type = req_data.get("chain", "megaeth").lower()
-    mode = req_data.get("mode", "fast").lower()
+    mode = req_data.get("mode", "high").lower()  # SOTA ArcFace 512-d by default for better match accuracy
     # Live web search is the default (a genuine search, not a hardcoded local
     # lookup) — pass live_search=false to opt into the free on-device gallery
     # match instead. Results are cached by image hash either way.

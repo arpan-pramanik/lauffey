@@ -164,7 +164,6 @@ body {
 }
 
 .nav-card:hover {
-  transform: translateY(-2px) scale(1.02);
   box-shadow: 0 8px 18px rgba(0, 0, 0, 0.12);
 }
 
@@ -238,7 +237,6 @@ body {
 }
 
 .btn-pill-purple:hover {
-  transform: translateY(-1px);
   background: #b58fff;
 }
 
@@ -411,7 +409,6 @@ body {
 
 .btn-black-pill:hover {
   background: #25252a;
-  transform: translateY(-1px);
 }
 
 .btn-outline-pill {
@@ -431,7 +428,6 @@ body {
 
 .btn-outline-pill:hover {
   background: rgba(0, 0, 0, 0.05);
-  transform: translateY(-1px);
 }
 
 /* Right Interactive Perspective Tunnel / Scanner Card */
@@ -649,7 +645,6 @@ body {
 .gallery-chip:hover, .gallery-chip.active {
   background: var(--color-black);
   color: #ffffff;
-  transform: translateY(-1px);
 }
 
 .gallery-chip img {
@@ -669,6 +664,73 @@ body {
 @media (max-width: 992px) {
   .results-bento {
     grid-template-columns: 1fr;
+  }
+}
+
+/* Other Candidate Matches (lower-confidence alternates) */
+.alt-matches-section {
+  background: var(--canvas-card);
+  border-radius: var(--radius-card);
+  border: 1px solid var(--color-border);
+  padding: 20px 24px;
+}
+
+.alt-matches-label {
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-gray-muted);
+  margin-bottom: 12px;
+}
+
+.alt-matches-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.alt-match-item {
+  display: grid;
+  grid-template-columns: 140px 1fr auto;
+  gap: 14px;
+  align-items: center;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--canvas-bg);
+  text-decoration: none;
+  color: var(--color-black);
+  font-size: 0.85rem;
+  transition: background 0.15s ease;
+}
+
+.alt-match-item:hover {
+  background: rgba(12, 12, 14, 0.06);
+}
+
+.alt-match-source {
+  font-weight: 800;
+  font-size: 0.78rem;
+}
+
+.alt-match-title {
+  color: var(--color-gray-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.alt-match-score {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+@media (max-width: 700px) {
+  .alt-match-item {
+    grid-template-columns: 1fr;
+    gap: 4px;
   }
 }
 
@@ -762,7 +824,6 @@ body {
 }
 
 .bento-action-btn:hover {
-  transform: translateY(-1px);
   opacity: 0.9;
 }
 
@@ -814,7 +875,7 @@ body {
 /* Toast Notifications */
 .toast-msg {
   position: fixed;
-  top: 24px;
+  bottom: 24px;
   right: 24px;
   background: var(--color-black);
   color: #ffffff;

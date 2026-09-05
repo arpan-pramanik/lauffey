@@ -1,5 +1,5 @@
 let currentChain = "megaeth";
-let currentMode = "fast";
+let currentMode = "high"; // SOTA ArcFace 512-d by default for better match accuracy
 let skipLiveSearch = false; // live web search is the default; checking the box opts into the free local gallery instead
 let selectedImagePath = "test_images/alex_query.png";
 let lastScanResult = null;
@@ -158,9 +158,13 @@ function renderScanResults(data) {
   const modeTag = searchModeLabel[data.discovery.search_mode] || "Local Gallery";
   document.getElementById("resSocialPlatform").textContent = `${top.source || "Social Web"} · ${modeTag}`;
   document.getElementById("resSocialTitle").textContent = top.title || "No social claim matched";
-  document.getElementById("resSimilarity").textContent = top.similarity_score ? `${(top.similarity_score * 100).toFixed(1)}% Match` : "--";
+
+  const resSimilarity = document.getElementById("resSimilarity");
+  resSimilarity.textContent = top.similarity_score ? `${(top.similarity_score * 100).toFixed(1)}% Match` : "Unscored (web result)";
+  resSimilarity.style.color = confidenceColor(top.confidence);
+
   document.getElementById("resEngine").textContent = data.face.engine;
-  
+
   const socialLink = document.getElementById("resSocialLink");
   if (top.link) {
     socialLink.href = top.link;
@@ -168,6 +172,8 @@ function renderScanResults(data) {
   } else {
     socialLink.style.display = "none";
   }
+
+  renderAlternateMatches(data.discovery.all_matches || []);
 
   // 3. Real-Time Blockchain Telemetry
   const bc = data.blockchain;
@@ -198,6 +204,48 @@ function renderScanResults(data) {
       ? `MATCH: ${(top.similarity_score * 100).toFixed(0)}%`
       : "LIVE WEB MATCH";
   }
+}
+
+// Maps a confidence label from either engine (local: "HIGH (MATCH)" / "MEDIUM"
+// / "LOW (NO MATCH)", live search: "high" / "web-match" / "synthetic-test")
+// to a color, so a shaky top pick reads as shaky rather than as a fact.
+function confidenceColor(confidence) {
+  const c = (confidence || "").toUpperCase();
+  if (c.startsWith("HIGH")) return "var(--color-green)";
+  if (c.startsWith("MEDIUM")) return "#c98a00";
+  if (c.startsWith("LOW")) return "var(--color-orange)";
+  return "var(--color-gray-muted)";
+}
+
+// Card 02's data pipe already returns up to 4 ranked candidates; only the
+// top one is used as the primary claim, but the rest are real alternate
+// matches worth showing rather than discarding.
+function renderAlternateMatches(allMatches) {
+  const section = document.getElementById("altMatchesSection");
+  const list = document.getElementById("altMatchesList");
+  const alternates = allMatches.slice(1);
+
+  if (alternates.length === 0) {
+    section.style.display = "none";
+    return;
+  }
+
+  list.innerHTML = "";
+  alternates.forEach(m => {
+    const item = document.createElement("a");
+    item.className = "alt-match-item";
+    item.href = m.link || "#";
+    item.target = "_blank";
+    item.rel = "noopener";
+    const scoreText = typeof m.similarity_score === "number" ? `${(m.similarity_score * 100).toFixed(1)}%` : "web result";
+    item.innerHTML = `
+      <span class="alt-match-source">${m.source || "Web"}</span>
+      <span class="alt-match-title">${m.title || "Untitled match"}</span>
+      <span class="alt-match-score" style="color:${confidenceColor(m.confidence)}">${scoreText}</span>
+    `;
+    list.appendChild(item);
+  });
+  section.style.display = "block";
 }
 
 // Simulate Tamper Attack
