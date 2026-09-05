@@ -522,6 +522,22 @@ body {
   display: none;
 }
 
+.camera-controls {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 10px;
+  z-index: 5;
+}
+
+.camera-controls .btn-black-pill,
+.camera-controls .btn-outline-pill {
+  padding: 10px 20px;
+  font-size: 0.85rem;
+}
+
 .face-box-overlay {
   position: absolute;
   border: 2.5px solid #00ff73;

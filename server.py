@@ -356,21 +356,6 @@ def simulate_tamper():
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
-@app.route("/api/camera", methods=["POST"])
-def scan_camera():
-    req = request.get_json() or {}
-    chain_type = req.get("chain", "megaeth").lower()
-    mode = req.get("mode", "fast").lower()
-
-    scan_file = BASE_DIR / "webcam_scan.jpg"
-    try:
-        FaceProcessor.capture_from_webcam(0, str(scan_file))
-        # Reuse scan logic
-        with app.test_request_context(json={"image_path": "webcam_scan.jpg", "chain": chain_type, "mode": mode}):
-            return run_scan()
-    except Exception as e:
-        return jsonify({"success": False, "error": f"Camera scan failed: {e}"}), 500
-
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 5000))
     print(f"[*] Starting Lauffey Web Server on http://127.0.0.1:{port}")

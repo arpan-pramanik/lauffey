@@ -169,17 +169,28 @@
             </div>
 
             <!-- Drag & Drop Viewport -->
-            <div class="scanner-dropzone" id="dropzone" onclick="document.getElementById('fileInput').click()">
+            <div class="scanner-dropzone" id="dropzone" onclick="handleDropzoneClick()">
               <div class="perspective-grid-layer"></div>
               <div class="scanning-bar" id="scanningBar"></div>
-              
+
               <!-- Video / Image Previews -->
               <video class="video-preview" id="videoPreview" autoplay playsinline muted></video>
               <img class="image-preview" id="imagePreview" alt="Face preview">
-              
+
               <!-- Face Box HUD -->
               <div class="face-box-overlay" id="faceBoxOverlay">
                 <div class="face-box-label" id="faceBoxLabel">DETECTED 100%</div>
+              </div>
+
+              <!-- Live Camera Controls (shown only while webcam stream is active) -->
+              <div class="camera-controls" id="cameraControls" style="display:none;">
+                <button class="btn-black-pill camera-capture-btn" onclick="event.stopPropagation(); captureWebcamPhoto()">
+                  <span>Capture</span>
+                  <span>◉</span>
+                </button>
+                <button class="btn-outline-pill camera-cancel-btn" onclick="event.stopPropagation(); stopWebcamStream()">
+                  <span>Cancel</span>
+                </button>
               </div>
 
               <!-- Default Prompt -->

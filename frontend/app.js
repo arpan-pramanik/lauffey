@@ -23,6 +23,10 @@ document.addEventListener("DOMContentLoaded", () => {
   }, 400);
 });
 
+window.addEventListener("pagehide", () => {
+  if (webcamStream) webcamStream.getTracks().forEach(track => track.stop());
+});
+
 // Load Profiles & Test Queries from Server
 async function loadProfiles() {
   try {
@@ -52,8 +56,9 @@ async function loadProfiles() {
 
 // Select a subject from gallery chips
 function selectQuerySubject(path, imgUrl, chipElem) {
+  if (webcamStream) stopWebcamStream();
   selectedImagePath = path;
-  
+
   // Update active chip
   document.querySelectorAll(".gallery-chip").forEach(c => c.classList.remove("active"));
   if (chipElem) chipElem.classList.add("active");
@@ -70,6 +75,7 @@ function selectQuerySubject(path, imgUrl, chipElem) {
 }
 
 // Execute Biometric Scan
+// fileData: a File (drag/drop or file input) or a base64 data URL string (webcam capture)
 async function executeCurrentScan(fileData = null) {
   showScanning(true);
 
@@ -84,6 +90,18 @@ async function executeCurrentScan(fileData = null) {
       formData.append("mode", currentMode);
       formData.append("live_search", liveSearchEnabled);
       options = { method: "POST", body: formData };
+    } else if (typeof fileData === "string" && fileData.startsWith("data:")) {
+      payload = {
+        image_base64: fileData,
+        chain: currentChain,
+        mode: currentMode,
+        live_search: liveSearchEnabled
+      };
+      options = {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      };
     } else {
       payload = {
         image_path: selectedImagePath,
@@ -280,6 +298,7 @@ function handleFileSelect(event) {
 }
 
 function handleUploadedFile(file) {
+  if (webcamStream) stopWebcamStream();
   const reader = new FileReader();
   reader.onload = (e) => {
     const imgPreview = document.getElementById("imagePreview");
@@ -297,29 +316,90 @@ function handleUploadedFile(file) {
   reader.readAsDataURL(file);
 }
 
-// Webcam Capture
+// Live Webcam Capture (real browser camera access via getUserMedia, not a
+// server-side hardware call — works with whatever camera the browser grants
+// permission for, and actually shows a live preview before capturing).
 async function triggerWebcam() {
-  showScanning(true);
-  showToast("Accessing hardware webcam /dev/video0...");
-  try {
-    const res = await fetch("/api/camera", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chain: currentChain, mode: currentMode })
-    });
-    const data = await res.json();
-    if (data.success) {
-      lastScanResult = data;
-      renderScanResults(data);
-      showToast("✓ Live webcam face scan verified!");
-    } else {
-      showToast(`Camera note: ${data.error}`);
-    }
-  } catch (err) {
-    showToast("Could not access camera device");
-  } finally {
-    showScanning(false);
+  if (webcamStream) return; // already active
+
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    showToast("This browser does not support camera access (getUserMedia unavailable)");
+    return;
   }
+
+  try {
+    webcamStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } },
+      audio: false
+    });
+  } catch (err) {
+    console.error("Camera access error:", err);
+    showToast("Camera permission denied or no camera found");
+    webcamStream = null;
+    return;
+  }
+
+  const video = document.getElementById("videoPreview");
+  video.srcObject = webcamStream;
+  video.style.display = "block";
+
+  document.getElementById("imagePreview").style.display = "none";
+  document.getElementById("dropzonePrompt").style.display = "none";
+  document.getElementById("faceBoxOverlay").style.display = "none";
+  document.getElementById("cameraControls").style.display = "flex";
+  document.querySelectorAll(".gallery-chip").forEach(c => c.classList.remove("active"));
+
+  showToast("Live camera active — click Capture when ready");
+}
+
+// Grabs the current video frame, stops the stream, and runs the scan on it.
+function captureWebcamPhoto() {
+  const video = document.getElementById("videoPreview");
+  if (!webcamStream || !video.videoWidth) {
+    showToast("Camera not ready yet");
+    return;
+  }
+
+  const canvas = document.createElement("canvas");
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  canvas.getContext("2d").drawImage(video, 0, 0, canvas.width, canvas.height);
+  const dataUrl = canvas.toDataURL("image/jpeg", 0.92);
+
+  // Show the captured frame before tearing down the stream — stopWebcamStream
+  // checks whether an image is already showing to decide if it should bring
+  // back the "drop a photo" placeholder prompt.
+  const imgPreview = document.getElementById("imagePreview");
+  imgPreview.src = dataUrl;
+  imgPreview.style.display = "block";
+
+  stopWebcamStream();
+
+  executeCurrentScan(dataUrl);
+}
+
+// Stops all camera tracks and resets the dropzone back to its idle state.
+function stopWebcamStream() {
+  if (webcamStream) {
+    webcamStream.getTracks().forEach(track => track.stop());
+    webcamStream = null;
+  }
+  const video = document.getElementById("videoPreview");
+  video.srcObject = null;
+  video.style.display = "none";
+  document.getElementById("cameraControls").style.display = "none";
+
+  const hasImage = document.getElementById("imagePreview").style.display === "block";
+  if (!hasImage) {
+    document.getElementById("dropzonePrompt").style.display = "flex";
+  }
+}
+
+// The dropzone itself opens the file picker on click, but not while a live
+// camera stream is showing (that would be a confusing double-purpose click).
+function handleDropzoneClick() {
+  if (webcamStream) return;
+  document.getElementById("fileInput").click();
 }
 
 // Copy Receipt JSON to Clipboard
