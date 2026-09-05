@@ -13,7 +13,10 @@ from local_engine import LocalDiscoveryEngine
 
 class TestLauffeyPipeline(unittest.TestCase):
     def setUp(self):
-        self.verifier = BlockchainVerifier()
+        # Force the local in-memory tester chain regardless of any
+        # BLOCKCHAIN_RPC configured in .env, so tests stay fast and
+        # deterministic instead of submitting real transactions.
+        self.verifier = BlockchainVerifier(rpc_url="tester")
 
     def test_01_merkle_tree_integrity(self):
         """Verify binary Merkle tree construction and inclusion proof verification."""

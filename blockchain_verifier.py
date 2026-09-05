@@ -227,9 +227,9 @@ class BlockchainVerifier:
         }
         tx_data = self._w3.to_hex(text=json.dumps(on_chain_payload, separators=(',', ':')))
 
-        if self._w3 is not None and self._w3.is_connected():
-            accounts = self._w3.eth.accounts
-            sender = accounts[0]
+        if self._w3 is not None and self._w3.is_connected() and self._is_tester:
+            # eth-tester exposes unlocked test accounts we can send from directly.
+            sender = self._w3.eth.accounts[0]
             tx_payload = {
                 "from": sender,
                 "to": sender,
@@ -237,10 +237,28 @@ class BlockchainVerifier:
                 "data": tx_data,
                 "gas": 120000,
             }
-            if not self._is_tester:
-                tx_payload["gasPrice"] = self._w3.eth.gas_price
-
             tx_hash_bytes = self._w3.eth.send_transaction(tx_payload)
+            tx_hash = self._w3.to_hex(tx_hash_bytes)
+        elif self._w3 is not None and self._w3.is_connected():
+            # Real RPC endpoints don't manage our keys, so sign locally with
+            # the validator's private key and broadcast the raw transaction.
+            sender = self.validator.address
+            tx_payload = {
+                "from": sender,
+                "to": sender,
+                "value": 0,
+                "data": tx_data,
+                "gas": 120000,
+                "gasPrice": self._w3.eth.gas_price,
+                "nonce": self._w3.eth.get_transaction_count(sender, "pending"),
+                "chainId": self._w3.eth.chain_id,
+            }
+            signed = self.validator.sign_transaction(tx_payload)
+            tx_hash_bytes = self._w3.eth.send_raw_transaction(signed.raw_transaction)
+            # Real networks take a block or two to confirm; block here so the
+            # transaction is actually mined before we hand back a tx_hash that
+            # callers immediately try to re-verify.
+            self._w3.eth.wait_for_transaction_receipt(tx_hash_bytes, timeout=120)
             tx_hash = self._w3.to_hex(tx_hash_bytes)
         else:
             # No live RPC connection: anchor into the local persistent ledger instead.
