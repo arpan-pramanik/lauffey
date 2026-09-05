@@ -29,7 +29,8 @@ def main():
     parser.add_argument("--camera", "--webcam", action="store_true", help="Capture a live face scan using your laptop camera (/dev/video0)")
     parser.add_argument("--chain", type=str, default="megaeth", choices=["megaeth", "solana", "evm"], help="Blockchain network backend (megaeth, solana, evm)")
     parser.add_argument("--fast", action="store_true", help="Use fast YuNet+SFace 128-d mode instead of SOTA ArcFace 512-d")
-    parser.add_argument("--live", action="store_true", help="Use live SerpAPI Google Lens search (consumes API quota)")
+    parser.add_argument("--live", action="store_true", help="Use live SerpAPI Google Lens search (this is the default; flag kept for explicitness/back-compat)")
+    parser.add_argument("--local", action="store_true", help="Skip live web search and match against the free on-device gallery instead (0 API quota)")
     parser.add_argument("--dry-run", action="store_true", help="Run with simulated search to conserve SerpAPI credits")
     parser.add_argument("--force-search", action="store_true", help="Bypass local search cache in live mode")
     parser.add_argument("--tamper-demo", action="store_true", help="Demonstrate tamper detection by altering proof data")
@@ -130,7 +131,18 @@ def main():
     # ---------------------------------------------------------
     t0 = time.perf_counter()
 
-    if args.live:
+    if args.dry_run:
+        print("\n[STAGE 2/4] Synthetic Discovery Mode (Dry-Run)...")
+        searcher = WebSearcher()
+        matches = searcher.mock_search(face_data["cropped_image"])
+    elif args.local:
+        print(f"\n[STAGE 2/4] On-Device Biometric Discovery Engine [{accuracy_label}] (0 API Quota)...")
+        local_eng = LocalDiscoveryEngine(mode=mode)
+        matches = local_eng.search_by_embedding(face_data["embedding"])
+    else:
+        # Default: a genuine live reverse-image web search, not a hardcoded
+        # local lookup. Results are cached by image hash, so re-scanning the
+        # same photo never re-spends SerpAPI quota.
         print("\n[STAGE 2/4] Live Reverse Visual Search (SerpAPI Google Lens)...")
         searcher = WebSearcher()
         try:
@@ -140,14 +152,6 @@ def main():
             print("  [*] Falling back to on-device discovery engine...")
             local_eng = LocalDiscoveryEngine(mode=mode)
             matches = local_eng.search_by_embedding(face_data["embedding"])
-    elif args.dry_run:
-        print("\n[STAGE 2/4] Synthetic Discovery Mode (Dry-Run)...")
-        searcher = WebSearcher()
-        matches = searcher.mock_search(face_data["cropped_image"])
-    else:
-        print(f"\n[STAGE 2/4] On-Device Biometric Discovery Engine [{accuracy_label}] (0 API Quota)...")
-        local_eng = LocalDiscoveryEngine(mode=mode)
-        matches = local_eng.search_by_embedding(face_data["embedding"])
 
     t_search = time.perf_counter() - t0
     print(f"  [✓] Matches Discovered: {len(matches)}")

@@ -1,6 +1,6 @@
 let currentChain = "megaeth";
 let currentMode = "fast";
-let liveSearchEnabled = false;
+let skipLiveSearch = false; // live web search is the default; checking the box opts into the free local gallery instead
 let selectedImagePath = "test_images/alex_query.png";
 let lastScanResult = null;
 let webcamStream = null;
@@ -88,14 +88,14 @@ async function executeCurrentScan(fileData = null) {
       formData.append("file", fileData);
       formData.append("chain", currentChain);
       formData.append("mode", currentMode);
-      formData.append("live_search", liveSearchEnabled);
+      formData.append("live_search", !skipLiveSearch);
       options = { method: "POST", body: formData };
     } else if (typeof fileData === "string" && fileData.startsWith("data:")) {
       payload = {
         image_base64: fileData,
         chain: currentChain,
         mode: currentMode,
-        live_search: liveSearchEnabled
+        live_search: !skipLiveSearch
       };
       options = {
         method: "POST",
@@ -107,7 +107,7 @@ async function executeCurrentScan(fileData = null) {
         image_path: selectedImagePath,
         chain: currentChain,
         mode: currentMode,
-        live_search: liveSearchEnabled
+        live_search: !skipLiveSearch
       };
       options = {
         method: "POST",
@@ -260,9 +260,9 @@ function setMode(mode) {
   executeCurrentScan();
 }
 
-// Live Web Search Toggle (opt-in, consumes SerpAPI quota)
+// Live web search is the default; checking this box opts OUT into the free local gallery
 function setLiveSearch(enabled) {
-  liveSearchEnabled = enabled;
+  skipLiveSearch = enabled;
 }
 
 // Drag and Drop

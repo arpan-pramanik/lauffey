@@ -162,9 +162,9 @@
               </div>
             </div>
             <div class="scanner-header" style="border-top: none; padding-top: 0;">
-              <label class="live-search-toggle" id="liveSearchLabel" title="Uses real SerpAPI Google Lens reverse-image search quota. Off by default; falls back to the free on-device gallery match.">
+              <label class="live-search-toggle" id="liveSearchLabel" title="On by default: runs a genuine SerpAPI Google Lens reverse-image search (cached by image hash, so re-scanning the same photo never re-spends quota). Check this to skip it and match against the free on-device gallery instead.">
                 <input type="checkbox" id="liveSearchToggle" onchange="setLiveSearch(this.checked)">
-                <span>Live web search (uses API quota)</span>
+                <span>Skip live web search (use free local gallery)</span>
               </label>
             </div>
 

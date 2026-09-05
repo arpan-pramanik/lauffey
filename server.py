@@ -136,8 +136,10 @@ def run_scan():
 
     chain_type = req_data.get("chain", "megaeth").lower()
     mode = req_data.get("mode", "fast").lower()
-    # Live web search hits real SerpAPI quota, so it's strictly opt-in from the UI.
-    use_live_search = str(req_data.get("live_search", "")).lower() in {"1", "true", "yes", "on"}
+    # Live web search is the default (a genuine search, not a hardcoded local
+    # lookup) — pass live_search=false to opt into the free on-device gallery
+    # match instead. Results are cached by image hash either way.
+    use_live_search = str(req_data.get("live_search", "true")).lower() not in {"0", "false", "no", "off"}
 
     # Determine image input
     target_image_path = None

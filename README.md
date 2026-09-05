@@ -3,8 +3,8 @@
 **Lauffey** is an end-to-end provenance architecture that:
 1. Takes an input face scan / image or captures directly from your laptop's camera (`/dev/video0`).
 2. **Highest-Accuracy Biometric Processing**: Localizes and geometrically aligns faces with **RetinaFace** (5-point landmark regression) and extracts **512-dimensional ArcFace embeddings** (99.83% SOTA accuracy). Supports fast YuNet+SFace mode on demand.
-3. **On-Device Biometric Discovery Engine (`local_engine.py`)**: Executes real vector similarity search against a local gallery of profiles on device with **0 API quota used**.
-4. **Live Visual Search Mode (`--live`)**: Queries Google Lens via SerpAPI across social networks (X, Facebook, GitHub, Medium) with intelligent SHA-256 caching.
+3. **Live Reverse-Image Web Search (default)**: Queries Google Lens via SerpAPI across social networks (X, Facebook, GitHub, Medium) to find a genuine matching post — not a hardcoded lookup — with intelligent SHA-256 caching so repeat scans never re-spend quota.
+4. **On-Device Biometric Discovery Engine (`local_engine.py`, `--local`)**: Optional 0-quota fallback that runs real vector similarity search against a local gallery of profiles on device instead of the web.
 5. Generates a **Cryptographic Merkle Provenance Tree** using Ethereum-native **Keccak-256 (SHA3-256)** to mathematically bind the 512-d biometric vector, content metadata, temporal nonce, and validator identity.
 6. Issues an **ECDSA secp256k1 Digital Signature** (EIP-191 attestation) over the state claims.
 7. Anchors the Merkle Root, audit paths, and attestation into EVM transaction calldata.
@@ -67,8 +67,8 @@ pip install -r requirements.txt
 
 ## How to Run
 
-### 1. Dynamic On-Device Biometric Discovery (0 API Quota Consumed)
-Executes real vector similarity search against the dynamically indexed biometric gallery:
+### 1. Live Reverse Visual Search (Google Lens via SerpAPI) — Default
+Every run performs a genuine reverse-image web search by default (requires `SERPAPI_KEY` in `.env`). Results are cached by image SHA-256, so re-scanning the same photo never re-spends quota:
 ```bash
 # Automatically discovers available queries in test_images/
 python main.py
@@ -78,18 +78,20 @@ python main.py --image path/to/any_face.jpg
 python main.py --image test_images/messi_query.jpg
 python main.py --image test_images/biden_query.jpg
 python main.py --image test_images/lena_query.jpg
+```
+If live search fails (no key, quota exhausted, network issue), the pipeline logs the failure and falls back to the on-device gallery rather than silently faking a result.
+
+### 1b. On-Device Biometric Discovery (`--local`, 0 API Quota Consumed)
+Skips the web search entirely and matches against the dynamically indexed local gallery:
+```bash
+python main.py --local
+python main.py --image path/to/any_face.jpg --local
 
 # List all dynamically indexed identities in the gallery
 python main.py --list-profiles
 
 # Register ANY novel identity into the biometric gallery at runtime
 python main.py --register path/to/new_face.jpg --name "Full Name"
-```
-
-### 2. Live Reverse Visual Search (Google Lens via SerpAPI)
-Queries external live web search across social networks for any face image (requires `SERPAPI_KEY` in `.env`):
-```bash
-python main.py --image path/to/any_face.jpg --live
 ```
 
 ### 3. Live Webcam Hardware Scan
@@ -130,7 +132,7 @@ python server.py
 ```
 - **Design System**: High-contrast Bauhaus / Neo-Brutalist design language inspired by `units.gr` (blueprint grid canvas, cream floating container, and color-blocked numbered card deck).
 - **Interactive Features**: Drag-and-drop face image dropzone, live webcam trigger, test portrait quick selector, real-time face landmark HUD, passive liveness gauge, and one-click tamper simulation test.
-- **Live web search toggle**: off by default (matches against the free on-device gallery, 0 API quota). Check "Live web search" before scanning to run a genuine SerpAPI Google Lens reverse-image search instead — results are cached by image hash so repeat scans of the same photo don't re-spend quota.
+- **Live web search**: on by default (genuine SerpAPI Google Lens reverse-image search, cached by image hash so repeat scans of the same photo never re-spend quota). Check "Skip live web search" to match against the free on-device gallery instead (0 API quota).
 
 ---
 
@@ -177,7 +179,7 @@ All three verifiers persist their validator keypair (`data/*_validator_key.json`
 ## Known Limitations
 
 1. **Local/simulated ledgers by default, not a live public network.** `megaeth` and `solana` are always locally persisted ledgers (there is no live MegaETH testnet RPC or funded Solana wallet wired in — the public Solana devnet faucet was rate-limited from our environment when we tried). `evm` defaults to the same local pattern but becomes a genuine on-chain submission the moment `BLOCKCHAIN_RPC` + a funded `VALIDATOR_PRIVATE_KEY` are set in `.env`. This is within what the task allows ("public testnet, mainnet, or a local/simulated chain"), and re-verification across separate process runs is real and demonstrable via `verify_receipt.py`.
-2. **Web search is local-gallery by default, live search is opt-in.** `python main.py` with no flags and the web frontend both match against the on-device gallery (`data/profiles.json`, 0 API quota) unless `--live` (CLI) or the "Live web search" toggle (frontend) is used, which calls real SerpAPI Google Lens reverse-image search. This default exists to conserve SerpAPI's limited free quota — pass `--live` or check the toggle to exercise genuine web search.
+2. **Live web search is the default, local gallery is opt-out.** `python main.py` with no flags and the web frontend both perform a genuine SerpAPI Google Lens reverse-image search by default — pass `--local` (CLI) or check "Skip live web search" (frontend) to match against the on-device gallery instead (`data/profiles.json`, 0 API quota). Results are cached by image SHA-256, so repeat scans of the same photo (including the auto-run demo scan on page load) only spend quota once.
 3. **Third-Party API Rate Limits in Live Mode**: Live web search requires SerpAPI credits. If quota is exhausted or the network fails, the pipeline logs the failure and falls back to the on-device discovery engine rather than silently returning a fabricated result.
 4. **Private Social Media Posts**: Reverse image search only discovers publicly indexed web and social media content. Private accounts (e.g. locked Instagram or private X accounts) cannot be crawled by search engines.
 5. **Extreme Facial Occlusion**: Heavy masks, extreme sunglasses, or severe profile angles (>60° yaw) may degrade biometric landmark detection confidence below verification thresholds.
