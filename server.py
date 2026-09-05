@@ -15,6 +15,7 @@ from blockchain_verifier import BlockchainVerifier
 from solana_verifier import SolanaVerifier
 from megaeth_verifier import MegaETHVerifier
 from zk_credential import ZKCredentialIssuer
+from config import PRODUCTION_MODE
 
 BASE_DIR = Path(__file__).resolve().parent
 FRONTEND_DIR = BASE_DIR / "frontend"
@@ -87,6 +88,7 @@ def get_status():
         "default_chain": "megaeth",
         "supported_chains": ["megaeth", "solana", "evm"],
         "gallery_count": len(local_eng.registry),
+        "local_fallback_enabled": not PRODUCTION_MODE,
         "timestamp": int(time.time()),
         "network_info": {
             "megaeth": {"block_time_ms": 10.0, "type": "MegaETH-style local ledger", "da": "EigenDA-style commitment"},
@@ -138,8 +140,10 @@ def run_scan():
     mode = req_data.get("mode", "high").lower()  # SOTA ArcFace 512-d by default for better match accuracy
     # Live web search is the default (a genuine search, not a hardcoded local
     # lookup) - pass live_search=false to opt into the free on-device gallery
-    # match instead. Results are cached by image hash either way.
-    use_live_search = str(req_data.get("live_search", "true")).lower() not in {"0", "false", "no", "off"}
+    # match instead. Results are cached by image hash either way. The
+    # on-device gallery is a dev-only convenience: the deployed backend
+    # (PRODUCTION_MODE) always searches live and never falls back to it.
+    use_live_search = True if PRODUCTION_MODE else str(req_data.get("live_search", "true")).lower() not in {"0", "false", "no", "off"}
 
     # Determine image input
     target_image_path = None
@@ -188,7 +192,8 @@ def run_scan():
         
         # 3. Social Discovery Search: genuine live reverse-image web search when
         # explicitly requested (consumes SerpAPI quota, cached by image hash),
-        # otherwise the free on-device gallery match (0 API quota).
+        # otherwise the free on-device gallery match (0 API quota). The
+        # on-device gallery is dev-only and never used in PRODUCTION_MODE.
         search_mode = "local"
         if use_live_search:
             try:
@@ -196,6 +201,11 @@ def run_scan():
                 matches = searcher.search_reverse_image(face_data["cropped_image"])
                 search_mode = "live"
             except Exception as live_err:
+                if PRODUCTION_MODE:
+                    return jsonify({
+                        "success": False,
+                        "error": f"Live web search is temporarily unavailable: {live_err}"
+                    }), 502
                 print(f"[!] Live search failed, falling back to local gallery: {live_err}")
                 engine = LocalDiscoveryEngine(mode=mode)
                 matches = engine.search_by_embedding(face_data["embedding"])

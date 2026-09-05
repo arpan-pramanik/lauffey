@@ -15,6 +15,7 @@ const CHAIN_LABELS = {
 // Initialize Application
 document.addEventListener("DOMContentLoaded", () => {
   loadProfiles();
+  applyBackendCapabilities();
   setupDragAndDrop();
   updateChainUI();
   // Auto-run baseline demo scan with first image
@@ -22,6 +23,22 @@ document.addEventListener("DOMContentLoaded", () => {
     executeCurrentScan();
   }, 400);
 });
+
+// The on-device local gallery fallback is a dev-only convenience, disabled
+// on the deployed backend. Hide the toggle entirely when it's not available
+// instead of offering a control for a feature the backend won't honor.
+async function applyBackendCapabilities() {
+  try {
+    const res = await fetch("/api/status");
+    const data = await res.json();
+    if (!data.local_fallback_enabled) {
+      document.getElementById("liveSearchLabel").style.display = "none";
+      skipLiveSearch = false;
+    }
+  } catch (err) {
+    console.error("Failed to load backend status:", err);
+  }
+}
 
 window.addEventListener("pagehide", () => {
   if (webcamStream) webcamStream.getTracks().forEach(track => track.stop());

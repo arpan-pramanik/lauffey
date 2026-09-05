@@ -49,3 +49,8 @@ CROP_MARGIN = 0.35  # margin around the face; enough hair/shoulder context for e
 
 # Blockchain configuration
 BLOCKCHAIN_RPC = os.environ.get("BLOCKCHAIN_RPC", "tester")
+
+# When true (set on the deployed backend only), the on-device local gallery
+# match is a dev-only convenience and is fully disabled: search always goes
+# live, and a failure is reported honestly instead of silently falling back.
+PRODUCTION_MODE = os.environ.get("PRODUCTION_MODE", "false").strip().lower() in {"1", "true", "yes"}
