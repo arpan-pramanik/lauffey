@@ -89,9 +89,9 @@ def get_status():
         "gallery_count": len(local_eng.registry),
         "timestamp": int(time.time()),
         "network_info": {
-            "megaeth": {"block_time_ms": 10.0, "type": "Real-Time Parallel EVM", "da": "EigenDA"},
-            "solana": {"block_time_ms": 400.0, "type": "High-Throughput PoH", "da": "SPL Memo"},
-            "evm": {"block_time_ms": 1000.0, "type": "Modular Layer-2", "da": "Calldata"}
+            "megaeth": {"block_time_ms": 10.0, "type": "MegaETH-style local ledger", "da": "EigenDA-style commitment"},
+            "solana": {"block_time_ms": 400.0, "type": "Solana-style local ledger", "da": "SPL Memo-style payload"},
+            "evm": {"block_time_ms": 1000.0, "type": "EVM (local tester or live RPC)", "da": "Calldata"}
         }
     })
 
@@ -181,7 +181,6 @@ def run_scan():
         # 1. Biometric Feature Extraction
         processor = FaceProcessor(mode=mode)
         face_data = processor.process(target_image_path, crop_output_dir=str(TEMP_DIR))
-
 
         # 2. Passive Presentation Attack Detection (Liveness)
         detector = LivenessDetector()
