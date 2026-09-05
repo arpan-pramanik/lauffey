@@ -27,75 +27,10 @@
       <div class="marquee-chain-badge" id="activeChainBadge">CHAIN: MegaETH (10ms)</div>
     </header>
 
-    <!-- Main Two-Column Structure -->
+    <!-- Main Content -->
     <div class="main-layout">
 
-      <!-- Left Vertical Navigation Deck -->
-      <aside class="nav-deck">
-        <div class="brand-logo">lauffey<span>.</span></div>
-
-        <!-- 01 Blue Card: Biometric Scan -->
-        <button class="nav-card blue" onclick="focusScanner()">
-          <div class="nav-card-top">
-            <span>01</span>
-            <span class="nav-card-arrow">↗</span>
-          </div>
-          <div class="nav-card-label">Biometric<br>Scan</div>
-        </button>
-
-        <!-- 02 Yellow Card: Social Discovery -->
-        <button class="nav-card yellow" onclick="scrollToBento()">
-          <div class="nav-card-top">
-            <span>02</span>
-            <span class="nav-card-arrow">↗</span>
-          </div>
-          <div class="nav-card-label">Social<br>Match</div>
-        </button>
-
-        <!-- 03 Orange Card: Blockchain Proof -->
-        <button class="nav-card orange" onclick="scrollToBlockchain()">
-          <div class="nav-card-top">
-            <span>03</span>
-            <span class="nav-card-arrow">↗</span>
-          </div>
-          <div class="nav-card-label">Blockchain<br>Proof</div>
-        </button>
-
-        <!-- 04 Green Card: Liveness & VC -->
-        <button class="nav-card green" onclick="scrollToVC()">
-          <div class="nav-card-top">
-            <span>04</span>
-            <span class="nav-card-arrow">↗</span>
-          </div>
-          <div class="nav-card-label">Liveness<br>& VC</div>
-        </button>
-
-        <!-- Lilac CTA Pill -->
-        <button class="btn-pill-purple" onclick="simulateTamperAttack()">
-          Simulate<br>Tampering ⚡
-        </button>
-
-        <!-- Network Selector Pill -->
-        <button class="chain-select-pill" id="chainSwitchBtn" onclick="toggleChain()" title="Click to cycle blockchain engine">
-          <span id="chainBtnText">MegaETH</span>
-          <span class="chain-pulse-dot"></span>
-        </button>
-
-        <!-- Terminal / Social Strip -->
-        <div class="social-strip">
-          <a href="https://github.com/arpan-pramanik/lauffey" target="_blank" title="GitHub Repository">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path></svg>
-          </a>
-          <a href="#" onclick="copyReceiptJSON(); return false;" title="Copy Provenance Receipt">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-          </a>
-          <a href="#" onclick="triggerWebcam(); return false;" title="Webcam Scan">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
-          </a>
-        </div>
-      </aside>
-
-      <!-- Center Content Canvas -->
+      <!-- Full-Width Content Canvas -->
       <main class="content-canvas">
 
         <!-- Top Hero Section (Intro + Interactive Scanner) -->
@@ -311,6 +246,71 @@
       </main>
 
     </div>
+
+    <!-- Bottom Action Bar: brand, 4 functional action cards, tamper test, chain switch, socials -->
+    <footer class="bottom-action-bar">
+      <div class="brand-logo">lauffey<span>.</span></div>
+
+      <!-- 01 Blue Card: re-run the full pipeline on the current image -->
+      <button class="nav-card blue" onclick="executeCurrentScan()" title="Re-run the full biometric + search + blockchain pipeline on the current image">
+        <div class="nav-card-info">
+          <span class="nav-card-index">01</span>
+          <span class="nav-card-label">Biometric Scan</span>
+        </div>
+        <span class="nav-card-arrow">↗</span>
+      </button>
+
+      <!-- 02 Yellow Card: open the discovered social post -->
+      <button class="nav-card yellow" onclick="openSocialMatch()" title="Open the discovered social media post from the last scan">
+        <div class="nav-card-info">
+          <span class="nav-card-index">02</span>
+          <span class="nav-card-label">Social Match</span>
+        </div>
+        <span class="nav-card-arrow">↗</span>
+      </button>
+
+      <!-- 03 Orange Card: open the on-chain proof -->
+      <button class="nav-card orange" onclick="openBlockchainProof()" title="Open the live block explorer link, or copy the local ledger tx hash">
+        <div class="nav-card-info">
+          <span class="nav-card-index">03</span>
+          <span class="nav-card-label">Blockchain Proof</span>
+        </div>
+        <span class="nav-card-arrow">↗</span>
+      </button>
+
+      <!-- 04 Green Card: download the W3C Verifiable Credential -->
+      <button class="nav-card green" onclick="downloadVerifiableCredential()" title="Download the W3C Verifiable Credential JSON issued for the last scan">
+        <div class="nav-card-info">
+          <span class="nav-card-index">04</span>
+          <span class="nav-card-label">Liveness &amp; VC</span>
+        </div>
+        <span class="nav-card-arrow">↓</span>
+      </button>
+
+      <!-- Lilac CTA Pill -->
+      <button class="btn-pill-purple" onclick="simulateTamperAttack()">
+        Simulate Tampering ⚡
+      </button>
+
+      <!-- Network Selector Pill -->
+      <button class="chain-select-pill" id="chainSwitchBtn" onclick="toggleChain()" title="Click to cycle blockchain engine">
+        <span id="chainBtnText">MegaETH</span>
+        <span class="chain-pulse-dot"></span>
+      </button>
+
+      <!-- Terminal / Social Strip -->
+      <div class="social-strip">
+        <a href="https://github.com/arpan-pramanik/lauffey" target="_blank" title="GitHub Repository">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path></svg>
+        </a>
+        <a href="#" onclick="copyReceiptJSON(); return false;" title="Copy Provenance Receipt">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+        </a>
+        <a href="#" onclick="triggerWebcam(); return false;" title="Webcam Scan">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+        </a>
+      </div>
+    </footer>
 
   </div>
 

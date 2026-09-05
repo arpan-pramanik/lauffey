@@ -115,36 +115,29 @@ body {
   100% { transform: translateX(-50%); }
 }
 
-/* Main Two-Column Layout */
+/* Main Content Layout (single column — the nav deck now lives in the bottom bar) */
 .main-layout {
-  display: grid;
-  grid-template-columns: 140px 1fr;
-  gap: 20px;
-  align-items: stretch;
-}
-
-@media (max-width: 992px) {
-  .main-layout {
-    grid-template-columns: 1fr;
-  }
-}
-
-/* Left Sidebar Deck */
-.nav-deck {
   display: flex;
   flex-direction: column;
+}
+
+/* Bottom Action Bar: brand + 4 functional cards + tamper/chain/social controls */
+.bottom-action-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 12px;
 }
 
 .brand-logo {
   font-family: var(--font-display);
-  font-size: 2.2rem;
+  font-size: 1.7rem;
   font-weight: 800;
   letter-spacing: -0.05em;
   color: var(--color-black);
-  margin-bottom: 4px;
-  padding-left: 4px;
+  padding: 0 10px 0 4px;
   line-height: 1;
+  flex: 0 0 auto;
 }
 
 .brand-logo span {
@@ -152,12 +145,16 @@ body {
 }
 
 .nav-card {
-  height: 96px;
+  flex: 1 1 190px;
+  min-width: 170px;
+  height: auto;
   border-radius: var(--radius-card);
-  padding: 12px 14px;
+  padding: 14px 18px;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  align-items: center;
   justify-content: space-between;
+  gap: 10px;
   text-decoration: none;
   cursor: pointer;
   transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.18s ease;
@@ -171,19 +168,24 @@ body {
   box-shadow: 0 8px 18px rgba(0, 0, 0, 0.12);
 }
 
-.nav-card-top {
+.nav-card-info {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.nav-card-index {
   font-family: var(--font-mono);
   font-weight: 700;
-  font-size: 0.85rem;
+  font-size: 0.72rem;
+  opacity: 0.85;
 }
 
 .nav-card-arrow {
   font-size: 1.1rem;
   line-height: 1;
   transition: transform 0.2s ease;
+  flex: 0 0 auto;
 }
 
 .nav-card:hover .nav-card-arrow {
@@ -192,9 +194,10 @@ body {
 
 .nav-card-label {
   font-weight: 800;
-  font-size: 0.82rem;
+  font-size: 0.85rem;
   letter-spacing: -0.02em;
   line-height: 1.15;
+  white-space: nowrap;
 }
 
 /* Specific Card Color Schemes */
@@ -222,7 +225,7 @@ body {
   background: var(--color-purple);
   color: var(--color-black);
   border-radius: var(--radius-sm);
-  padding: 12px 10px;
+  padding: 14px 18px;
   font-weight: 800;
   font-size: 0.82rem;
   text-align: center;
@@ -230,6 +233,8 @@ body {
   cursor: pointer;
   transition: transform 0.15s ease, background 0.15s ease;
   line-height: 1.2;
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 
 .btn-pill-purple:hover {
@@ -241,16 +246,19 @@ body {
   background: var(--color-black);
   color: #ffffff;
   border-radius: var(--radius-pill);
-  padding: 8px 12px;
+  padding: 12px 16px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
+  gap: 8px;
   font-size: 0.72rem;
   font-family: var(--font-mono);
   font-weight: 700;
   border: none;
   cursor: pointer;
   transition: opacity 0.15s;
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 
 .chain-pulse-dot {
@@ -270,12 +278,14 @@ body {
 .social-strip {
   background: var(--color-black);
   border-radius: var(--radius-pill);
-  padding: 8px 12px;
+  padding: 12px 18px;
   display: flex;
-  justify-content: space-around;
+  justify-content: center;
   align-items: center;
+  gap: 16px;
   color: #ffffff;
   font-size: 0.85rem;
+  flex: 0 0 auto;
 }
 
 .social-strip a {
@@ -804,7 +814,7 @@ body {
 /* Toast Notifications */
 .toast-msg {
   position: fixed;
-  bottom: 24px;
+  top: 24px;
   right: 24px;
   background: var(--color-black);
   color: #ffffff;

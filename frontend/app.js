@@ -194,7 +194,9 @@ function renderScanResults(data) {
     box.style.top = "15%";
     box.style.width = "60%";
     box.style.height = "70%";
-    document.getElementById("faceBoxLabel").textContent = `MATCH: ${(top.similarity_score * 100).toFixed(0)}%`;
+    document.getElementById("faceBoxLabel").textContent = typeof top.similarity_score === "number"
+      ? `MATCH: ${(top.similarity_score * 100).toFixed(0)}%`
+      : "LIVE WEB MATCH";
   }
 }
 
@@ -431,18 +433,48 @@ function showToast(text) {
   }, 3500);
 }
 
-function focusScanner() {
-  document.getElementById("scannerCard").scrollIntoView({ behavior: "smooth" });
+// Card 02: open the discovered social media post from the last scan
+function openSocialMatch() {
+  const link = lastScanResult && lastScanResult.discovery && lastScanResult.discovery.top_match && lastScanResult.discovery.top_match.link;
+  if (!link) {
+    showToast("Run a scan first to discover a social match");
+    return;
+  }
+  window.open(link, "_blank", "noopener");
 }
 
-function scrollToBento() {
-  document.getElementById("bentoCardSocial").scrollIntoView({ behavior: "smooth" });
+// Card 03: open the real block explorer link if this scan anchored to a live
+// chain, otherwise copy the local ledger tx hash (still genuinely re-verifiable
+// via verify_receipt.py, just not on a public explorer).
+function openBlockchainProof() {
+  if (!lastScanResult) {
+    showToast("Run a scan first to generate an on-chain proof");
+    return;
+  }
+  const bc = lastScanResult.blockchain;
+  if (bc.is_live && bc.explorer_url) {
+    window.open(bc.explorer_url, "_blank", "noopener");
+  } else {
+    navigator.clipboard.writeText(bc.tx_hash).then(() => {
+      showToast(`✓ Copied local ledger TX hash (${lastScanResult.chain} is a local simulated chain, no public explorer)`);
+    }).catch(() => showToast("Clipboard access denied"));
+  }
 }
 
-function scrollToBlockchain() {
-  document.getElementById("bentoCardBlockchain").scrollIntoView({ behavior: "smooth" });
-}
-
-function scrollToVC() {
-  document.getElementById("bentoCardIdentity").scrollIntoView({ behavior: "smooth" });
+// Card 04: download the W3C Verifiable Credential issued for the last scan
+function downloadVerifiableCredential() {
+  if (!lastScanResult || !lastScanResult.verifiable_credential) {
+    showToast("Run a scan first to issue a verifiable credential");
+    return;
+  }
+  const blob = new Blob([JSON.stringify(lastScanResult.verifiable_credential, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `lauffey_credential_${lastScanResult.blockchain.tx_hash.slice(2, 12)}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  showToast("✓ W3C Verifiable Credential downloaded");
 }
