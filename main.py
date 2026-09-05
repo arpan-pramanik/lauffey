@@ -29,7 +29,7 @@ def main():
     parser.add_argument("--camera", "--webcam", action="store_true", help="Capture a live face scan using your laptop camera (/dev/video0)")
     parser.add_argument("--chain", type=str, default="megaeth", choices=["megaeth", "solana", "evm"], help="Blockchain network backend (megaeth, solana, evm)")
     parser.add_argument("--fast", action="store_true", help="Use fast YuNet+SFace 128-d mode instead of SOTA ArcFace 512-d")
-    parser.add_argument("--live", action="store_true", help="Use live SerpAPI Google Lens search (this is the default; flag kept for explicitness/back-compat)")
+    parser.add_argument("--live", action="store_true", help="Use live Google Lens search via Serper.dev/SerpAPI (this is the default; flag kept for explicitness/back-compat)")
     parser.add_argument("--local", action="store_true", help="Skip live web search and match against the free on-device gallery instead (0 API quota)")
     parser.add_argument("--dry-run", action="store_true", help="Run with simulated search to conserve SerpAPI credits")
     parser.add_argument("--force-search", action="store_true", help="Bypass local search cache in live mode")
@@ -143,7 +143,7 @@ def main():
         # Default: a genuine live reverse-image web search, not a hardcoded
         # local lookup. Results are cached by image hash, so re-scanning the
         # same photo never re-spends SerpAPI quota.
-        print("\n[STAGE 2/4] Live Reverse Visual Search (SerpAPI Google Lens)...")
+        print("\n[STAGE 2/4] Live Reverse Visual Search (Google Lens via Serper.dev/SerpAPI)...")
         searcher = WebSearcher()
         try:
             matches = searcher.search_reverse_image(face_data["cropped_image"], force=args.force_search)
