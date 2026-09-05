@@ -9,13 +9,18 @@ from flask import Flask, request, jsonify, send_from_directory, send_file
 
 from face_processor import FaceProcessor
 from liveness_detector import LivenessDetector
-from local_engine import LocalDiscoveryEngine
 from web_searcher import WebSearcher
 from blockchain_verifier import BlockchainVerifier
 from solana_verifier import SolanaVerifier
 from megaeth_verifier import MegaETHVerifier
 from zk_credential import ZKCredentialIssuer
 from config import PRODUCTION_MODE
+
+# The on-device local gallery engine is a dev-only convenience (see
+# PRODUCTION_MODE) and isn't even present on the deployed backend, so it's
+# only imported when actually available and needed.
+if not PRODUCTION_MODE:
+    from local_engine import LocalDiscoveryEngine
 
 BASE_DIR = Path(__file__).resolve().parent
 FRONTEND_DIR = BASE_DIR / "frontend"
@@ -82,12 +87,12 @@ def serve_image(folder, filename):
 
 @app.route("/api/status", methods=["GET"])
 def get_status():
-    local_eng = LocalDiscoveryEngine(mode="fast")
+    gallery_count = 0 if PRODUCTION_MODE else len(LocalDiscoveryEngine(mode="fast").registry)
     return jsonify({
         "status": "online",
         "default_chain": "megaeth",
         "supported_chains": ["megaeth", "solana", "evm"],
-        "gallery_count": len(local_eng.registry),
+        "gallery_count": gallery_count,
         "local_fallback_enabled": not PRODUCTION_MODE,
         "timestamp": int(time.time()),
         "network_info": {
@@ -99,19 +104,20 @@ def get_status():
 
 @app.route("/api/profiles", methods=["GET"])
 def get_profiles():
-    local_eng = LocalDiscoveryEngine(mode="fast")
     gallery = []
-    for item in local_eng.registry:
-        p = item["profile"]
-        img_name = Path(p.get("image", "")).name
-        gallery.append({
-            "id": p.get("id"),
-            "name": p.get("name"),
-            "source": p.get("source", "Verified Profile"),
-            "title": p.get("title", ""),
-            "link": p.get("link", ""),
-            "image_url": f"/images/profiles/{img_name}"
-        })
+    if not PRODUCTION_MODE:
+        local_eng = LocalDiscoveryEngine(mode="fast")
+        for item in local_eng.registry:
+            p = item["profile"]
+            img_name = Path(p.get("image", "")).name
+            gallery.append({
+                "id": p.get("id"),
+                "name": p.get("name"),
+                "source": p.get("source", "Verified Profile"),
+                "title": p.get("title", ""),
+                "link": p.get("link", ""),
+                "image_url": f"/images/profiles/{img_name}"
+            })
 
     # Available test query portraits
     test_queries = []

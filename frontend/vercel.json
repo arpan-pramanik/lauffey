@@ -1,0 +1,7 @@
+{
+  "framework": null,
+  "rewrites": [
+    { "source": "/api/:path*", "destination": "http://13.233.46.85:5000/api/:path*" },
+    { "source": "/images/:path*", "destination": "http://13.233.46.85:5000/images/:path*" }
+  ]
+}
