@@ -2,7 +2,7 @@
 
 Generated: 2026-09-03 11:17:40
 
-> **Note:** this report predates several features added afterward (liveness detection, W3C verifiable credentials, Solana/MegaETH chains, the web frontend) and only exercises fast-mode face matching, the local discovery engine, and the EVM verifier. Re-run `python benchmark.py` for a report covering the current code. The `FAIL` rows below are genuine adversarial-robustness results (e.g. heavy Gaussian noise defeating fast-mode matching), not fabricated — recorded here as-is rather than hidden.
+> **Note:** this report predates several features added afterward (liveness detection, W3C verifiable credentials, Solana/MegaETH chains, the web frontend) and only exercises fast-mode face matching, the local discovery engine, and the EVM verifier. Re-run `python benchmark.py` for a report covering the current code. The `FAIL` rows below are genuine adversarial-robustness results (e.g. heavy Gaussian noise defeating fast-mode matching), not fabricated - recorded here as-is rather than hidden.
 
 ## 1. Executive Summary
 A multi-dimensional stress benchmark testing adversarial robustness, thread concurrency, cryptographic scaling, vector search scalability, and tamper resistance.

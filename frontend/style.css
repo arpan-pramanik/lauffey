@@ -115,7 +115,7 @@ body {
   100% { transform: translateX(-50%); }
 }
 
-/* Main Content Layout (single column — the nav deck now lives in the bottom bar) */
+/* Main Content Layout (single column - the nav deck now lives in the bottom bar) */
 .main-layout {
   display: flex;
   flex-direction: column;

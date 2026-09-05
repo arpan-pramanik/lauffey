@@ -3,7 +3,7 @@
 **Lauffey** is an end-to-end provenance architecture that:
 1. Takes an input face scan / image or captures directly from your laptop's camera (`/dev/video0`).
 2. **Highest-Accuracy Biometric Processing**: Localizes and geometrically aligns faces with **RetinaFace** (5-point landmark regression) and extracts **512-dimensional ArcFace embeddings** (99.83% SOTA accuracy). Supports fast YuNet+SFace mode on demand.
-3. **Live Reverse-Image Web Search (default)**: Queries Google Lens via SerpAPI across social networks (X, Facebook, GitHub, Medium) to find a genuine matching post — not a hardcoded lookup — with intelligent SHA-256 caching so repeat scans never re-spend quota.
+3. **Live Reverse-Image Web Search (default)**: Queries Google Lens via SerpAPI across social networks (X, Facebook, GitHub, Medium) to find a genuine matching post - not a hardcoded lookup - with intelligent SHA-256 caching so repeat scans never re-spend quota.
 4. **On-Device Biometric Discovery Engine (`local_engine.py`, `--local`)**: Optional 0-quota fallback that runs real vector similarity search against a local gallery of profiles on device instead of the web.
 5. Generates a **Cryptographic Merkle Provenance Tree** using Ethereum-native **Keccak-256 (SHA3-256)** to mathematically bind the 512-d biometric vector, content metadata, temporal nonce, and validator identity.
 6. Issues an **ECDSA secp256k1 Digital Signature** (EIP-191 attestation) over the state claims.
@@ -52,8 +52,9 @@ Lauffey implements the modern data integrity standards utilized in contemporary 
 ```bash
 cp .env.example .env
 ```
-Add your credentials to `.env`:
+Add your credentials to `.env`. Either key is enough to enable live web search; set both and Serper.dev is tried first (cheaper per query), with automatic fallback to SerpAPI if Serper fails or is not configured:
 ```env
+SERPER_API_KEY=your_serper_key_here
 SERPAPI_KEY=your_serpapi_key_here
 ```
 *(Sensitive credentials in `.env` are strictly excluded in `.gitignore`)*
@@ -67,8 +68,8 @@ pip install -r requirements.txt
 
 ## How to Run
 
-### 1. Live Reverse Visual Search (Google Lens via SerpAPI) — Default
-Every run performs a genuine reverse-image web search by default (requires `SERPAPI_KEY` in `.env`). Results are cached by image SHA-256, so re-scanning the same photo never re-spends quota:
+### 1. Live Reverse Visual Search (Google Lens via Serper.dev or SerpAPI) - Default
+Every run performs a genuine reverse-image web search by default (requires `SERPER_API_KEY` and/or `SERPAPI_KEY` in `.env`). Results are cached by image SHA-256, so re-scanning the same photo never re-spends quota:
 ```bash
 # Automatically discovers available queries in test_images/
 python main.py
@@ -155,7 +156,7 @@ The repository includes diverse public-domain benchmark queries across multiple 
 
 ## Blockchain Used
 
-Lauffey supports three interchangeable chain backends behind the same Merkle-anchoring interface. **By default all three are locally persisted, tamper-evident ledgers, not live public-network connections** — see [Known Limitations](#known-limitations) for exactly what that means and how to point them at a real network.
+Lauffey supports three interchangeable chain backends behind the same Merkle-anchoring interface. **By default all three are locally persisted, tamper-evident ledgers, not live public-network connections** - see [Known Limitations](#known-limitations) for exactly what that means and how to point them at a real network.
 
 ### 1. MegaETH-style Engine (`--chain megaeth`, Default)
 - Modeled on MegaETH's 10ms block time / EigenDA data-availability design.
@@ -165,21 +166,21 @@ Lauffey supports three interchangeable chain backends behind the same Merkle-anc
 ### 2. Solana-style Engine (`--chain solana`)
 - Modeled on Solana's Memo-program anchoring pattern (`MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr`).
 - **Cryptographic Primitives**: Ed25519 signatures, Base58 encoding, SHA-256 Merkle Provenance trees.
-- **Ledger**: `data/ledger_solana.json`, a locally persisted append-only store (not a devnet/mainnet RPC connection — the public devnet faucet was rate-limited when we tested it, see limitations).
+- **Ledger**: `data/ledger_solana.json`, a locally persisted append-only store (not a devnet/mainnet RPC connection - the public devnet faucet was rate-limited when we tested it, see limitations).
 
 ### 3. EVM Engine (`--chain evm`)
 - **Cryptographic Primitives**: Keccak-256 Merkle trees, ECDSA secp256k1 (EIP-191).
 - **Default mode**: `py-evm`/`eth-tester` in-memory EVM sandbox per process, backed by `data/ledger_evm.json` for cross-process re-verification.
-- **Real mode**: set `BLOCKCHAIN_RPC` in `.env` to a public RPC URL (e.g. a Sepolia endpoint) and `VALIDATOR_PRIVATE_KEY` to a funded key — `record_on_chain` then submits a genuine, block-explorer-checkable transaction instead of using the local ledger.
+- **Real mode**: set `BLOCKCHAIN_RPC` in `.env` to a public RPC URL (e.g. a Sepolia endpoint) and `VALIDATOR_PRIVATE_KEY` to a funded key - `record_on_chain` then submits a genuine, block-explorer-checkable transaction instead of using the local ledger.
 
-All three verifiers persist their validator keypair (`data/*_validator_key.json`, gitignored) and their ledger to disk, so a transaction recorded by one process (`python main.py`) is independently re-verifiable by a completely separate process later (`python verify_receipt.py --receipt receipts/&lt;file&gt;.json`) — this is what "re-verifying against the on-chain record" means for the local/simulated backends.
+All three verifiers persist their validator keypair (`data/*_validator_key.json`, gitignored) and their ledger to disk, so a transaction recorded by one process (`python main.py`) is independently re-verifiable by a completely separate process later (`python verify_receipt.py --receipt receipts/&lt;file&gt;.json`) - this is what "re-verifying against the on-chain record" means for the local/simulated backends.
 
 ---
 
 ## Known Limitations
 
-1. **Local/simulated ledgers by default, not a live public network.** `megaeth` and `solana` are always locally persisted ledgers (there is no live MegaETH testnet RPC or funded Solana wallet wired in — the public Solana devnet faucet was rate-limited from our environment when we tried). `evm` defaults to the same local pattern but becomes a genuine on-chain submission the moment `BLOCKCHAIN_RPC` + a funded `VALIDATOR_PRIVATE_KEY` are set in `.env`. This is within what the task allows ("public testnet, mainnet, or a local/simulated chain"), and re-verification across separate process runs is real and demonstrable via `verify_receipt.py`.
-2. **Live web search is the default, local gallery is opt-out.** `python main.py` with no flags and the web frontend both perform a genuine SerpAPI Google Lens reverse-image search by default — pass `--local` (CLI) or check "Skip live web search" (frontend) to match against the on-device gallery instead (`data/profiles.json`, 0 API quota). Results are cached by image SHA-256, so repeat scans of the same photo (including the auto-run demo scan on page load) only spend quota once.
+1. **Local/simulated ledgers by default, not a live public network.** `megaeth` and `solana` are always locally persisted ledgers (there is no live MegaETH testnet RPC or funded Solana wallet wired in - the public Solana devnet faucet was rate-limited from our environment when we tried). `evm` defaults to the same local pattern but becomes a genuine on-chain submission the moment `BLOCKCHAIN_RPC` + a funded `VALIDATOR_PRIVATE_KEY` are set in `.env`. This is within what the task allows ("public testnet, mainnet, or a local/simulated chain"), and re-verification across separate process runs is real and demonstrable via `verify_receipt.py`.
+2. **Live web search is the default, local gallery is opt-out.** `python main.py` with no flags and the web frontend both perform a genuine SerpAPI Google Lens reverse-image search by default - pass `--local` (CLI) or check "Skip live web search" (frontend) to match against the on-device gallery instead (`data/profiles.json`, 0 API quota). Results are cached by image SHA-256, so repeat scans of the same photo (including the auto-run demo scan on page load) only spend quota once.
 3. **Third-Party API Rate Limits in Live Mode**: Live web search requires SerpAPI credits. If quota is exhausted or the network fails, the pipeline logs the failure and falls back to the on-device discovery engine rather than silently returning a fabricated result.
 4. **Private Social Media Posts**: Reverse image search only discovers publicly indexed web and social media content. Private accounts (e.g. locked Instagram or private X accounts) cannot be crawled by search engines.
 5. **Extreme Facial Occlusion**: Heavy masks, extreme sunglasses, or severe profile angles (>60° yaw) may degrade biometric landmark detection confidence below verification thresholds.

@@ -38,7 +38,7 @@ def verify_receipt_file(receipt_path: str):
     print(f"[*] Ledger TX Hash     : {tx_hash}")
 
     # Dispatch to the verifier that actually understands this receipt's
-    # manifest shape and ledger — each chain's manifest/leaf fields differ,
+    # manifest shape and ledger - each chain's manifest/leaf fields differ,
     # so always using the EVM verifier silently mis-verifies non-EVM receipts.
     if blockchain == "solana":
         verifier = SolanaVerifier()

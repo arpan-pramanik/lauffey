@@ -5,17 +5,20 @@ import time
 import requests
 from pathlib import Path
 from typing import List, Dict, Any, Optional
-from config import SERPAPI_KEY, SOCIAL_DOMAINS, CACHE_DIR
+from config import SERPAPI_KEY, SERPER_API_KEY, SOCIAL_DOMAINS, CACHE_DIR
 
 class WebSearcher:
     """
-    Handles reverse visual search via Google Lens (SerpAPI) with smart caching
-    to prevent burning precious free API quota.
+    Handles reverse visual search via Google Lens, with two interchangeable
+    providers: Serper.dev (tried first, cheaper per-query) and SerpAPI
+    (automatic fallback if Serper fails or is not configured). Results are
+    cached locally by image SHA256 to conserve quota on both providers.
     """
-    def __init__(self, api_key: Optional[str] = None):
-        self.api_key = api_key or SERPAPI_KEY
-        if not self.api_key:
-            print("[!] Warning: SERPAPI_KEY is not set. Real web search calls will fail unless dry-run is used.")
+    def __init__(self, serper_key: Optional[str] = None, serpapi_key: Optional[str] = None):
+        self.serper_key = serper_key or SERPER_API_KEY
+        self.serpapi_key = serpapi_key or SERPAPI_KEY
+        if not self.serper_key and not self.serpapi_key:
+            print("[!] Warning: neither SERPER_API_KEY nor SERPAPI_KEY is set. Real web search calls will fail unless dry-run is used.")
 
     def _get_image_file_hash(self, image_path: str) -> str:
         h = hashlib.sha256()
@@ -76,10 +79,53 @@ class WebSearcher:
 
         raise RuntimeError("No image hosting service succeeded in uploading the temporary portrait.")
 
+    def _raw_matches_via_serper(self, public_url: str) -> List[Dict[str, Any]]:
+        """Queries Serper.dev's Google Lens endpoint and normalizes results to the common match shape."""
+        resp = requests.post(
+            "https://google.serper.dev/lens",
+            headers={"X-API-KEY": self.serper_key, "Content-Type": "application/json"},
+            json={"url": public_url},
+            timeout=30
+        )
+        if resp.status_code != 200:
+            raise RuntimeError(f"Serper returned HTTP {resp.status_code}: {resp.text}")
+        data = resp.json()
+        organic = data.get("organic", [])
+        return [
+            {
+                "link": item.get("link", ""),
+                "source": item.get("source", ""),
+                "title": item.get("title", ""),
+                "thumbnail": item.get("imageUrl", "")
+            }
+            for item in organic
+        ]
+
+    def _raw_matches_via_serpapi(self, public_url: str) -> List[Dict[str, Any]]:
+        """Queries SerpAPI's Google Lens engine and returns its native visual_matches list."""
+        params = {
+            "engine": "google_lens",
+            "url": public_url,
+            "api_key": self.serpapi_key
+        }
+        last_err = None
+        for attempt in range(2):
+            try:
+                resp = requests.get("https://serpapi.com/search.json", params=params, timeout=30)
+                if resp.status_code == 200:
+                    return resp.json().get("visual_matches", [])
+                last_err = RuntimeError(f"SerpAPI returned HTTP {resp.status_code}: {resp.text}")
+            except Exception as e:
+                last_err = e
+            time.sleep(1.5)
+        raise RuntimeError(f"SerpAPI request failed: {last_err}")
+
     def search_reverse_image(self, image_path: str, force: bool = False) -> List[Dict[str, Any]]:
         """
-        Executes Google Lens reverse search via SerpAPI.
-        Results are cached locally by image SHA256 to conserve API credits.
+        Executes a Google Lens reverse search of the given image, trying Serper.dev
+        first (cheaper per-query) and falling back to SerpAPI if Serper fails or
+        is not configured. Results are cached locally by image SHA256 so a
+        repeat scan of the same photo never spends quota on either provider.
         """
         img_hash = self._get_image_file_hash(image_path)
         cache_file = CACHE_DIR / f"lens_search_{img_hash[:16]}.json"
@@ -91,36 +137,31 @@ class WebSearcher:
                     print(f"  [*] Reusing locally cached search result: {cache_file.name}")
                     return cached
 
-        if not self.api_key:
-            raise ValueError("SERPAPI_KEY is required to perform reverse web search.")
+        if not self.serper_key and not self.serpapi_key:
+            raise ValueError("Set SERPER_API_KEY or SERPAPI_KEY to perform reverse web search.")
 
-        print("  [*] Uploading cropped face to temporary host...")
+        print("  [*] Uploading face crop to temporary host...")
         public_url = self.upload_to_temp_host(image_path)
         print(f"  [*] Image hosted temporarily at: {public_url}")
 
-        print("  [*] Querying SerpAPI Google Lens...")
-        params = {
-            "engine": "google_lens",
-            "url": public_url,
-            "api_key": self.api_key
-        }
+        providers = []
+        if self.serper_key:
+            providers.append(("Serper.dev", self._raw_matches_via_serper))
+        if self.serpapi_key:
+            providers.append(("SerpAPI", self._raw_matches_via_serpapi))
 
+        raw_matches = None
         last_err = None
-        for attempt in range(2):
+        for name, search_fn in providers:
+            print(f"  [*] Querying {name} Google Lens...")
             try:
-                resp = requests.get("https://serpapi.com/search.json", params=params, timeout=30)
-                if resp.status_code == 200:
-                    data = resp.json()
-                    break
-                else:
-                    raise RuntimeError(f"SerpAPI returned HTTP {resp.status_code}: {resp.text}")
+                raw_matches = search_fn(public_url)
+                break
             except Exception as e:
                 last_err = e
-                time.sleep(1.5)
-        else:
-            raise RuntimeError(f"SerpAPI request failed: {last_err}")
-
-        raw_matches = data.get("visual_matches", [])
+                print(f"  [!] {name} search failed: {e}")
+        if raw_matches is None:
+            raise RuntimeError(f"All configured search providers failed: {last_err}")
 
         # Filter social media posts
         social_posts = []
@@ -128,7 +169,7 @@ class WebSearcher:
             link = match.get("link", "")
             source = match.get("source", "").lower()
             title = match.get("title", "")
-            
+
             is_social = any(domain in link.lower() or domain in source for domain in SOCIAL_DOMAINS)
             if is_social:
                 social_posts.append({

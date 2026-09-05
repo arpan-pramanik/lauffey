@@ -26,7 +26,7 @@ TEMP_DIR = BASE_DIR / "data" / "tmp"
 TEMP_DIR.mkdir(parents=True, exist_ok=True)
 
 ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
-# Only these directories may be selected by path for a scan — prevents
+# Only these directories may be selected by path for a scan - prevents
 # arbitrary local file reads via a caller-supplied image_path.
 ALLOWED_SCAN_DIRS = [TEST_DIR.resolve(), PROFILES_DIR.resolve(), TEMP_DIR.resolve()]
 
@@ -137,7 +137,7 @@ def run_scan():
     chain_type = req_data.get("chain", "megaeth").lower()
     mode = req_data.get("mode", "high").lower()  # SOTA ArcFace 512-d by default for better match accuracy
     # Live web search is the default (a genuine search, not a hardcoded local
-    # lookup) — pass live_search=false to opt into the free on-device gallery
+    # lookup) - pass live_search=false to opt into the free on-device gallery
     # match instead. Results are cached by image hash either way.
     use_live_search = str(req_data.get("live_search", "true")).lower() not in {"0", "false", "no", "off"}
 

@@ -25,6 +25,7 @@ def load_env():
 load_env()
 
 SERPAPI_KEY = os.environ.get("SERPAPI_KEY", "").strip()
+SERPER_API_KEY = os.environ.get("SERPER_API_KEY", "").strip()
 
 # Target social media domains to detect in reverse search
 SOCIAL_DOMAINS = [
@@ -44,7 +45,7 @@ SOCIAL_DOMAINS = [
 
 # High-accuracy vs Fast modes
 BIOMETRIC_ACCURACY_MODE = os.environ.get("BIOMETRIC_ACCURACY_MODE", "high")  # 'high' (ArcFace 512-d) or 'fast' (SFace 128-d)
-CROP_MARGIN = 0.20  # 20% margin around the face for optimal visual matching
+CROP_MARGIN = 0.35  # margin around the face; enough hair/shoulder context for entity recognition without becoming a generic whole-photo crop
 
 # Blockchain configuration
 BLOCKCHAIN_RPC = os.environ.get("BLOCKCHAIN_RPC", "tester")

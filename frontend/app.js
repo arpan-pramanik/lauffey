@@ -367,7 +367,7 @@ function handleUploadedFile(file) {
 }
 
 // Live Webcam Capture (real browser camera access via getUserMedia, not a
-// server-side hardware call — works with whatever camera the browser grants
+// server-side hardware call - works with whatever camera the browser grants
 // permission for, and actually shows a live preview before capturing).
 async function triggerWebcam() {
   if (webcamStream) return; // already active
@@ -399,7 +399,7 @@ async function triggerWebcam() {
   document.getElementById("cameraControls").style.display = "flex";
   document.querySelectorAll(".gallery-chip").forEach(c => c.classList.remove("active"));
 
-  showToast("Live camera active — click Capture when ready");
+  showToast("Live camera active - click Capture when ready");
 }
 
 // Grabs the current video frame, stops the stream, and runs the scan on it.
@@ -416,7 +416,7 @@ function captureWebcamPhoto() {
   canvas.getContext("2d").drawImage(video, 0, 0, canvas.width, canvas.height);
   const dataUrl = canvas.toDataURL("image/jpeg", 0.92);
 
-  // Show the captured frame before tearing down the stream — stopWebcamStream
+  // Show the captured frame before tearing down the stream - stopWebcamStream
   // checks whether an image is already showing to decide if it should bring
   // back the "drop a photo" placeholder prompt.
   const imgPreview = document.getElementById("imagePreview");
