@@ -265,12 +265,6 @@ body {
   border-radius: 50%;
   background: #38ef7d;
   box-shadow: 0 0 8px #38ef7d;
-  animation: pulseDot 1.5s infinite;
-}
-
-@keyframes pulseDot {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.5; transform: scale(0.85); }
 }
 
 .social-strip {

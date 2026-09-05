@@ -7,9 +7,9 @@ let webcamStream = null;
 
 const CHAINS = ["megaeth", "solana", "evm"];
 const CHAIN_LABELS = {
-  megaeth: "MegaETH (10ms)",
-  solana: "Solana (400ms)",
-  evm: "EVM L2 (1s)"
+  megaeth: "MegaETH-style",
+  solana: "Solana-style",
+  evm: "EVM"
 };
 
 // Initialize Application
@@ -127,7 +127,7 @@ async function executeCurrentScan(fileData = null) {
 
     lastScanResult = data;
     renderScanResults(data);
-    showToast(`✓ Provenance Verified on ${data.chain_label}`);
+    showToast(`Provenance verified on ${data.chain_label}`);
   } catch (err) {
     console.error("Scan error:", err);
     showToast("Pipeline error occurred during scan");
@@ -271,13 +271,13 @@ async function simulateTamperAttack() {
 
     if (data.tamper_detected) {
       alert(
-        "⚡ TAMPER REJECTION VERIFIED!\n\n" +
+        "TAMPER REJECTION VERIFIED\n\n" +
         "A malicious actor altered the verified profile URL in the manifest.\n" +
         "Result: REJECTED_BY_BLOCKCHAIN\n" +
         "Merkle Proof Valid: False\n\n" +
         "The on-chain ledger mathematically detected and rejected the counterfeit data!"
       );
-      showToast("✓ Tampered claim successfully rejected by blockchain!");
+      showToast("Tampered claim successfully rejected by blockchain");
     } else {
       showToast("Tamper detection failed");
     }
@@ -460,7 +460,7 @@ function copyReceiptJSON() {
   }
   const str = JSON.stringify(lastScanResult.manifest, null, 2);
   navigator.clipboard.writeText(str).then(() => {
-    showToast("✓ Provenance Receipt JSON copied to clipboard!");
+    showToast("Provenance receipt JSON copied to clipboard");
   }).catch(() => {
     showToast("Clipboard access denied");
   });
@@ -504,7 +504,7 @@ function openBlockchainProof() {
     window.open(bc.explorer_url, "_blank", "noopener");
   } else {
     navigator.clipboard.writeText(bc.tx_hash).then(() => {
-      showToast(`✓ Copied local ledger TX hash (${lastScanResult.chain} is a local simulated chain, no public explorer)`);
+      showToast(`Copied local ledger TX hash (${lastScanResult.chain} is a local simulated chain, no public explorer)`);
     }).catch(() => showToast("Clipboard access denied"));
   }
 }
@@ -524,5 +524,5 @@ function downloadVerifiableCredential() {
   a.click();
   a.remove();
   URL.revokeObjectURL(url);
-  showToast("✓ W3C Verifiable Credential downloaded");
+  showToast("W3C Verifiable Credential downloaded");
 }
