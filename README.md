@@ -52,7 +52,7 @@ Lauffey implements the modern data integrity standards utilized in contemporary 
 ```bash
 cp .env.example .env
 ```
-Add your credentials to `.env`. Either key is enough to enable live web search; set both and Serper.dev is tried first (cheaper per query), with automatic fallback to SerpAPI if Serper fails or is not configured:
+Add your credentials to `.env`. Either key is enough to enable live web search; set both and SerpAPI is tried first (its Google Lens results were consistently far more complete than Serper.dev's in side-by-side testing), with automatic fallback to Serper.dev if SerpAPI fails, is exhausted, or is not configured:
 ```env
 SERPER_API_KEY=your_serper_key_here
 SERPAPI_KEY=your_serpapi_key_here

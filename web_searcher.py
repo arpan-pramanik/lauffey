@@ -144,24 +144,35 @@ class WebSearcher:
         public_url = self.upload_to_temp_host(image_path)
         print(f"  [*] Image hosted temporarily at: {public_url}")
 
+        # SerpAPI's google_lens engine has consistently returned far more
+        # complete visual match results than Serper.dev's /lens endpoint in
+        # side-by-side testing on the same image (60 matches vs 0), so it's
+        # tried first. Serper is kept as a fallback in case SerpAPI itself
+        # is unavailable or its quota is exhausted.
         providers = []
-        if self.serper_key:
-            providers.append(("Serper.dev", self._raw_matches_via_serper))
         if self.serpapi_key:
             providers.append(("SerpAPI", self._raw_matches_via_serpapi))
+        if self.serper_key:
+            providers.append(("Serper.dev", self._raw_matches_via_serper))
 
         raw_matches = None
         last_err = None
         for name, search_fn in providers:
             print(f"  [*] Querying {name} Google Lens...")
             try:
-                raw_matches = search_fn(public_url)
-                break
+                result = search_fn(public_url)
             except Exception as e:
                 last_err = e
                 print(f"  [!] {name} search failed: {e}")
+                continue
+            if result:
+                raw_matches = result
+                break
+            print(f"  [!] {name} returned no visual matches, trying next provider...")
+            last_err = last_err or RuntimeError(f"{name} returned no visual matches")
+
         if raw_matches is None:
-            raise RuntimeError(f"All configured search providers failed: {last_err}")
+            raise RuntimeError(f"All configured search providers failed or returned nothing: {last_err}")
 
         # Filter social media posts
         social_posts = []
