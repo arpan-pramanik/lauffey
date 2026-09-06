@@ -1,0 +1,15 @@
+.venv
+.git
+__pycache__
+*.pyc
+.cache
+receipts/receipt_*.json
+receipts/credential_*.json
+data/tmp
+data/ledger_*.json
+data/*_validator_key.json
+.env
+node_modules
+test_images/temp_cropped_*
+temp_*
+*/temp_*
