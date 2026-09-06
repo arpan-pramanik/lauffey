@@ -1,43 +1,44 @@
 {
-  "tx_hash": "0x9b4acd9e3bd093e56f894bc8e73a8c08d54a02d1188a5a8654a6742ce5d4ba28",
+  "tx_hash": "0xc971a51791ff415d424d7c57d78d8c2e2ee4e6c96e89f3127d2fef6b9e75edbc",
+  "blockchain": "EVM",
   "manifest": {
     "version": "lauffey-v2-merkle",
-    "merkle_root": "0x77b6090225908e68bef68a9a1bde46dfdd667568dcf3be114dd492c0a254a6d2",
-    "validator_address": "0x3DCD5e2A867b40dd9D6D77ca0Be28E3Da95A5015",
-    "signature": "0x94932e7a3291cc2a5cf72bb474da77a852ee4ef57d630172de221f87c54b9f570bfd4b4e1a64a5a34f23f4a26b46e002a6fb628c8ceda051f57aa82e83e923191c",
-    "timestamp": 1788409597,
+    "merkle_root": "0x1e58781884d37871e3a35d208fc109e499f1c2ed79dbdf092565ebf1d958c9a6",
+    "validator_address": "0x7451D124896336884B9B867A39d9fcd566E0A5a1",
+    "signature": "0x7d0d8b2a707917c1202f1b8afa19c70cc8214ba26eb8919154207d7d8ea2b8f0635d5ad1535b802355cbbe4699b557b192dbaa39f98626a1c9691b95ade8f24b1c",
+    "timestamp": 1788689054,
     "leaves": {
-      "biometric_leaf": "0x74877cb9581dce869e110b6e6f1bae0277135d0c60123ebe156265d7278e115a",
-      "content_leaf": "0x9f3ac1ab8d063ad7cf0cbdc9f6f6dc695fb2accc355f80da0a0b3a479e894630",
-      "attestation_leaf": "0xc2f010cf78674d5714845048f404adfe9c32d0d48b798e96e7f864c89ab798d4",
-      "signature_leaf": "0x8e0c329153865028d00ab6f6012770d8c0afddc3636d55454e9a14796ba9c422"
+      "biometric_leaf": "0xe01958633f0c59ef2efdf1efdd9f7e60f7883d025fdc03387f65890b4f5b491f",
+      "content_leaf": "0xca30d2c0b822933fe97691e9426215e2ba5fcb221c50f80ea02e859c12628d80",
+      "attestation_leaf": "0x944f3ea4354ea28676067bdd5662b74fea0462437957bdad449fc744c998951f",
+      "signature_leaf": "0x2280cf9dc0f71598f1022d801e28a07ec3736f0f9d6889ddb640378d7fd8ed49"
     },
     "proofs": {
       "biometric_inclusion_proof": [
         {
           "position": "right",
-          "hash": "0x9f3ac1ab8d063ad7cf0cbdc9f6f6dc695fb2accc355f80da0a0b3a479e894630"
+          "hash": "0xca30d2c0b822933fe97691e9426215e2ba5fcb221c50f80ea02e859c12628d80"
         },
         {
           "position": "right",
-          "hash": "0xd38969a3cab01555f7cfbacb36a383a481d2435234b16092556631802d1bdc62"
+          "hash": "0x46e34d3ae6665ad7b4ad1dfbcde4273a9b982c7f45c86be6e3d51a9aba4c74f2"
         }
       ],
       "content_inclusion_proof": [
         {
           "position": "left",
-          "hash": "0x74877cb9581dce869e110b6e6f1bae0277135d0c60123ebe156265d7278e115a"
+          "hash": "0xe01958633f0c59ef2efdf1efdd9f7e60f7883d025fdc03387f65890b4f5b491f"
         },
         {
           "position": "right",
-          "hash": "0xd38969a3cab01555f7cfbacb36a383a481d2435234b16092556631802d1bdc62"
+          "hash": "0x46e34d3ae6665ad7b4ad1dfbcde4273a9b982c7f45c86be6e3d51a9aba4c74f2"
         }
       ]
     },
     "target_post": {
-      "url": "https://github.com/pettaa123",
-      "title": "pettaa123 (Peter) \u00b7 GitHub"
+      "url": "https://x.com/identity_user/status/1792348196e0db455",
+      "title": "Profile avatar update - verified user identity #6e0db455"
     }
   },
-  "created_at": 1788409597.359412
+  "created_at": 1788689102.3004472
 }
