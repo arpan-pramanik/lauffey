@@ -1,5 +1,7 @@
 # Lauffey: Biometric-to-Blockchain Provenance Pipeline
 
+Made for HackerHouse Goa 2026, Task 3.
+
 Face scan in, verified on-chain proof out. Lauffey takes a face, finds a real matching social media post for it on the web, and anchors that finding to a blockchain in a way anyone can independently re-check later.
 
 **Live demo:** https://lauffey-frontend.vercel.app (frontend on Vercel, backend on AWS EC2)
