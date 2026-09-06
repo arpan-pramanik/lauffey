@@ -13,7 +13,18 @@ Face scan in, verified on-chain proof out. Lauffey takes a face, finds a real ma
 
 Also included: a W3C Verifiable Credential is issued per scan, tamper detection can be demonstrated live (mutate a claim, watch the cryptographic proof reject it), and there's a web frontend on top of all of this.
 
-## Quick start
+## Setup in 5 minutes (Docker)
+
+```bash
+git clone <this-repo>
+cd lauffey
+cp .env.example .env
+# add SERPER_API_KEY and/or SERPAPI_KEY to .env - either is enough
+docker compose up --build
+```
+Then open http://localhost:5000. No Python, no dependency wrangling - the container has everything (OpenCV, ArcFace, torch, the works) already baked in. First build pulls a few GB of ML libraries, so it takes longer than 5 minutes on a slow connection; after that, `docker compose up` alone starts it in seconds.
+
+## Quick start (without Docker)
 
 ```bash
 git clone <this-repo>
@@ -65,14 +76,7 @@ python test_pipeline.py
 python server.py
 # http://localhost:5000
 ```
-Live search is on by default here too - there's a checkbox to switch to the local gallery if you want to conserve quota while poking around the UI.
-
-**Docker:**
-```bash
-docker compose up --build
-# http://localhost:5000
-```
-Same server, containerized. `.env` is read via `env_file` in `docker-compose.yml`, and `data/`/`receipts/` are mounted so the chain ledgers and receipts survive a container restart.
+Live search is on by default here too - there's a checkbox to switch to the local gallery if you want to conserve quota while poking around the UI. `docker compose up --build` runs this same server containerized (see [Setup in 5 minutes](#setup-in-5-minutes-docker) above); `.env` is read via `env_file`, and `data/`/`receipts/` are mounted so the chain ledgers and receipts survive a container restart.
 
 ## Blockchain used
 
