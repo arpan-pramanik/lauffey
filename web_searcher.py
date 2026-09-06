@@ -168,6 +168,14 @@ class WebSearcher:
             with open(tmp_path, "wb") as f:
                 f.write(image_bytes)
             result = face_processor.process(str(tmp_path))
+            # "Texture-Histogram (128-d Fallback)" is a color histogram, not
+            # a face embedding - it only fires when no real detector found a
+            # face at all, but happens to share SFace's 128 dimensions, so a
+            # bare dimension check wouldn't catch comparing it against a
+            # genuine embedding. A confidence of exactly 0.50 is detect_and_crop's
+            # own "nothing detected, used a blind center crop" fallback marker.
+            if result.get("engine") == "Texture-Histogram (128-d Fallback)" or result.get("confidence", 1.0) <= 0.50:
+                return None, None
             cand_emb = np.array(result["embedding"], dtype=np.float32)
             q_emb = np.array(query_embedding, dtype=np.float32)
             if len(cand_emb) != len(q_emb):
