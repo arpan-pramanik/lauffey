@@ -148,7 +148,8 @@ def main():
         try:
             matches = searcher.search_reverse_image(
                 face_data["cropped_image"], force=args.force_search,
-                query_embedding=face_data["embedding"], mode=mode
+                query_embedding=face_data["embedding"],
+                query_phash=face_data.get("perceptual_hash"), mode=mode
             )
         except Exception as e:
             print(f"  [!] Live search encountered an issue: {e}")

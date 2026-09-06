@@ -260,6 +260,19 @@ class FaceProcessor:
             "mode": self.mode
         }
 
+_processor_cache: Dict[str, "FaceProcessor"] = {}
+
+def get_cached_processor(mode: str) -> "FaceProcessor":
+    """
+    Returns a process-wide FaceProcessor for the given mode, building it once
+    and reusing it after that. Constructing one loads the ONNX/deepface
+    models from disk, which is expensive enough (several seconds) that doing
+    it fresh on every web request was a real source of slowness.
+    """
+    if mode not in _processor_cache:
+        _processor_cache[mode] = FaceProcessor(mode=mode)
+    return _processor_cache[mode]
+
 if __name__ == "__main__":
     processor = FaceProcessor(mode="high")
     print(f"FaceProcessor initialized in '{processor.mode}' accuracy mode.")

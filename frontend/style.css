@@ -866,6 +866,22 @@ body {
   100% { top: 100%; }
 }
 
+.scanning-status {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--color-black);
+  color: #ffffff;
+  padding: 8px 16px;
+  border-radius: var(--radius-pill);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  font-weight: 700;
+  z-index: 10;
+  white-space: nowrap;
+}
+
 /* Toast Notifications */
 .toast-msg {
   position: fixed;

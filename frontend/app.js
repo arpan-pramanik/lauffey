@@ -173,7 +173,10 @@ function renderScanResults(data) {
   // 2. Discovered Social Content
   const searchModeLabel = { live: "Live Web Search", local_fallback: "Local Gallery (live search failed)", local: "Local Gallery" };
   const modeTag = searchModeLabel[data.discovery.search_mode] || "Local Gallery";
-  document.getElementById("resSocialPlatform").textContent = `${top.source || "Social Web"} · ${modeTag}`;
+  let matchKindTag = "";
+  if (top.is_exact_image === true) matchKindTag = " · Exact image found";
+  else if (typeof top.similarity_score === "number") matchKindTag = " · Different photo, same person";
+  document.getElementById("resSocialPlatform").textContent = `${top.source || "Social Web"} · ${modeTag}${matchKindTag}`;
   document.getElementById("resSocialTitle").textContent = top.title || "No social claim matched";
 
   const resSimilarity = document.getElementById("resSimilarity");
@@ -484,8 +487,37 @@ function copyReceiptJSON() {
 }
 
 // UI Helpers
+const SCAN_STAGE_MESSAGES = [
+  "Analyzing facial features…",
+  "Searching the web for a match…",
+  "Verifying candidates against the face…",
+  "Anchoring proof to the blockchain…"
+];
+let scanStatusInterval = null;
+
 function showScanning(active) {
   document.getElementById("scanningBar").style.display = active ? "block" : "none";
+  const statusEl = document.getElementById("scanningStatus");
+
+  if (scanStatusInterval) {
+    clearInterval(scanStatusInterval);
+    scanStatusInterval = null;
+  }
+
+  if (active) {
+    let stage = 0;
+    statusEl.textContent = SCAN_STAGE_MESSAGES[stage];
+    statusEl.style.display = "block";
+    // Cycles through stage labels while the single scan request is in
+    // flight - this is a real request, not staged sub-calls, so the text
+    // is a best-guess indicator of progress, not a precise step tracker.
+    scanStatusInterval = setInterval(() => {
+      stage = Math.min(stage + 1, SCAN_STAGE_MESSAGES.length - 1);
+      statusEl.textContent = SCAN_STAGE_MESSAGES[stage];
+    }, 2500);
+  } else {
+    statusEl.style.display = "none";
+  }
 }
 
 function showToast(text) {

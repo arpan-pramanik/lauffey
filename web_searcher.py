@@ -6,6 +6,7 @@ import requests
 import numpy as np
 from pathlib import Path
 from typing import List, Dict, Any, Optional
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from config import SERPAPI_KEY, SERPER_API_KEY, SOCIAL_DOMAINS, CACHE_DIR
 
 # Same bucketing local_engine.py uses for on-device gallery matches, applied
@@ -17,6 +18,13 @@ def _confidence_label(score: float) -> str:
     if score > 0.25:
         return "MEDIUM"
     return "LOW (NO MATCH)"
+
+def _hamming_distance(hash_a: str, hash_b: str) -> int:
+    """Bit distance between two perceptual hashes - near 0 means the same image, not just the same face."""
+    try:
+        return bin(int(hash_a, 16) ^ int(hash_b, 16)).count("1")
+    except (ValueError, TypeError):
+        return 64
 
 class WebSearcher:
     """
@@ -131,32 +139,46 @@ class WebSearcher:
             time.sleep(1.5)
         raise RuntimeError(f"SerpAPI request failed: {last_err}")
 
-    def _verify_face_match(self, thumbnail_url: str, query_embedding: list, mode: str, face_processor) -> Optional[float]:
-        """
-        Downloads a candidate result's thumbnail and computes real ArcFace/SFace
-        cosine similarity against the query face embedding - this is what tells
-        a different photo of the same person apart from an unrelated photo that
-        merely looks visually similar to Google Lens.
-        """
+    def _download_thumbnail(self, thumbnail_url: str) -> Optional[bytes]:
+        """I/O-only, safe to run concurrently across many candidates at once."""
         if not thumbnail_url:
             return None
-        tmp_path = CACHE_DIR / f"_candidate_{hashlib.sha256(thumbnail_url.encode()).hexdigest()[:12]}.jpg"
         try:
-            resp = requests.get(thumbnail_url, timeout=8)
-            if resp.status_code != 200 or not resp.content:
-                return None
+            resp = requests.get(thumbnail_url, timeout=5)
+            if resp.status_code == 200 and resp.content:
+                return resp.content
+        except Exception:
+            pass
+        return None
+
+    def _verify_face_match(self, image_bytes: bytes, query_embedding: list, face_processor):
+        """
+        Computes real ArcFace/SFace cosine similarity against the query face
+        embedding, plus a perceptual hash of the candidate image - together
+        these tell a different photo of the same person (high similarity, a
+        different hash) apart from the exact same image reposted (both) and
+        an unrelated photo that merely looked similar to Google Lens (neither).
+        Runs sequentially, one candidate at a time, reusing a single
+        FaceProcessor instance - deepface's TF/Keras backend isn't safe to
+        call from multiple threads at once, so only the network downloads
+        upstream of this are parallelized.
+        """
+        tmp_path = CACHE_DIR / f"_candidate_{hashlib.sha256(image_bytes[:64]).hexdigest()[:12]}.jpg"
+        try:
             with open(tmp_path, "wb") as f:
-                f.write(resp.content)
+                f.write(image_bytes)
             result = face_processor.process(str(tmp_path))
             cand_emb = np.array(result["embedding"], dtype=np.float32)
             q_emb = np.array(query_embedding, dtype=np.float32)
             if len(cand_emb) != len(q_emb):
-                return None
+                return None, None
             cand_norm = cand_emb / (np.linalg.norm(cand_emb) or 1)
             q_norm = q_emb / (np.linalg.norm(q_emb) or 1)
-            return float(np.dot(cand_norm, q_norm))
+            similarity = float(np.dot(cand_norm, q_norm))
+            phash = result.get("perceptual_hash", "0x0")
+            return similarity, phash
         except Exception:
-            return None
+            return None, None
         finally:
             if tmp_path.exists():
                 tmp_path.unlink()
@@ -166,6 +188,7 @@ class WebSearcher:
         image_path: str,
         force: bool = False,
         query_embedding: Optional[list] = None,
+        query_phash: Optional[str] = None,
         mode: str = "high"
     ) -> List[Dict[str, Any]]:
         """
@@ -177,7 +200,9 @@ class WebSearcher:
         When query_embedding is provided, each candidate's thumbnail is
         independently re-checked against the query face (see
         _verify_face_match) so a different photo of the same person ranks
-        above a merely visually-similar photo of someone else.
+        above a merely visually-similar photo of someone else. Thumbnails are
+        downloaded concurrently (this is the part that can be slow/flaky
+        across many candidates) but verified against the face one at a time.
         """
         img_hash = self._get_image_file_hash(image_path)
         cache_file = CACHE_DIR / f"lens_search_{img_hash[:16]}.json"
@@ -256,14 +281,31 @@ class WebSearcher:
         VERIFY_CAP = 20
         if query_embedding and all_candidates:
             pool = all_candidates[:VERIFY_CAP]
-            print(f"  [*] Verifying {len(pool)} candidate(s) against the query face...")
-            from face_processor import FaceProcessor
-            verifier = FaceProcessor(mode=mode)
-            for candidate in pool:
-                score = self._verify_face_match(candidate.get("thumbnail", ""), query_embedding, mode, verifier)
-                if score is not None:
-                    candidate["similarity_score"] = round(score, 4)
-                    candidate["confidence"] = _confidence_label(score)
+            print(f"  [*] Downloading {len(pool)} candidate thumbnail(s)...")
+
+            # Downloads are the slow, flaky part (many different third-party
+            # hosts, some slow to respond) - fetch them all concurrently so
+            # one slow host doesn't multiply into the others' wait time.
+            downloads = {}
+            with ThreadPoolExecutor(max_workers=8) as pool_executor:
+                futures = {pool_executor.submit(self._download_thumbnail, c.get("thumbnail", "")): i for i, c in enumerate(pool)}
+                for future in as_completed(futures):
+                    downloads[futures[future]] = future.result()
+
+            downloaded = sum(1 for b in downloads.values() if b)
+            print(f"  [*] Verifying {downloaded} downloaded candidate(s) against the query face...")
+            from face_processor import get_cached_processor
+            verifier = get_cached_processor(mode)
+            for i, candidate in enumerate(pool):
+                image_bytes = downloads.get(i)
+                if not image_bytes:
+                    continue
+                similarity, cand_phash = self._verify_face_match(image_bytes, query_embedding, verifier)
+                if similarity is not None:
+                    candidate["similarity_score"] = round(similarity, 4)
+                    candidate["confidence"] = _confidence_label(similarity)
+                    if query_phash and cand_phash:
+                        candidate["is_exact_image"] = _hamming_distance(query_phash, cand_phash) <= 10
 
         # Keep every candidate that's either a confirmed face match (any
         # similarity score - LOW ones sort to the bottom rather than get

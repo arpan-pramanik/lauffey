@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Optional
 from flask import Flask, request, jsonify, send_from_directory, send_file
 
-from face_processor import FaceProcessor
+from face_processor import get_cached_processor
 from liveness_detector import LivenessDetector
 from web_searcher import WebSearcher
 from blockchain_verifier import BlockchainVerifier
@@ -189,7 +189,7 @@ def run_scan():
         t0 = time.perf_counter()
 
         # 1. Biometric Feature Extraction
-        processor = FaceProcessor(mode=mode)
+        processor = get_cached_processor(mode)
         face_data = processor.process(target_image_path, crop_output_dir=str(TEMP_DIR))
 
         # 2. Passive Presentation Attack Detection (Liveness)
@@ -206,7 +206,8 @@ def run_scan():
                 searcher = WebSearcher()
                 matches = searcher.search_reverse_image(
                     face_data["cropped_image"],
-                    query_embedding=face_data["embedding"], mode=mode
+                    query_embedding=face_data["embedding"],
+                    query_phash=face_data.get("perceptual_hash"), mode=mode
                 )
                 search_mode = "live"
             except Exception as live_err:
