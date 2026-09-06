@@ -303,12 +303,25 @@ class WebSearcher:
             downloaded = sum(1 for b in downloads.values() if b)
             print(f"  [*] Verifying {downloaded} downloaded candidate(s) against the query face...")
             from face_processor import get_cached_processor
-            verifier = get_cached_processor(mode)
+
+            # Candidate verification always runs in fast mode (YuNet+SFace),
+            # independent of whatever accuracy mode the user's own photo
+            # used. Checking up to 20 candidates doesn't need SOTA precision,
+            # and running deepface's much heavier RetinaFace/ArcFace pass
+            # that many times in a row was slow enough to blow past request
+            # timeouts in production. Re-embeds the query in fast mode too
+            # so both sides of every comparison are the same 128-d space.
+            verifier = get_cached_processor("fast")
+            if mode == "fast":
+                fast_query_embedding = query_embedding
+            else:
+                fast_query_embedding = verifier.process(image_path)["embedding"]
+
             for i, candidate in enumerate(pool):
                 image_bytes = downloads.get(i)
                 if not image_bytes:
                     continue
-                similarity, cand_phash = self._verify_face_match(image_bytes, query_embedding, verifier)
+                similarity, cand_phash = self._verify_face_match(image_bytes, fast_query_embedding, verifier)
                 if similarity is not None:
                     candidate["similarity_score"] = round(similarity, 4)
                     candidate["confidence"] = _confidence_label(similarity)
