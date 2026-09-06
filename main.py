@@ -147,7 +147,7 @@ def main():
         searcher = WebSearcher()
         try:
             matches = searcher.search_reverse_image(
-                face_data["cropped_image"], force=args.force_search,
+                image_path, force=args.force_search,
                 query_embedding=face_data["embedding"],
                 query_phash=face_data.get("perceptual_hash"), mode=mode
             )

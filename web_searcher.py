@@ -217,7 +217,7 @@ class WebSearcher:
         if not self.serper_key and not self.serpapi_key:
             raise ValueError("Set SERPER_API_KEY or SERPAPI_KEY to perform reverse web search.")
 
-        print("  [*] Uploading face crop to temporary host...")
+        print("  [*] Uploading image for facial analysis...")
         public_url = self.upload_to_temp_host(image_path)
         print(f"  [*] Image hosted temporarily at: {public_url}")
 
@@ -307,15 +307,11 @@ class WebSearcher:
                     if query_phash and cand_phash:
                         candidate["is_exact_image"] = _hamming_distance(query_phash, cand_phash) <= 10
 
-        # Keep every candidate that's either a confirmed face match (any
-        # similarity score - LOW ones sort to the bottom rather than get
-        # dropped, so a thin result set doesn't just vanish) or an
-        # unverified social post (no thumbnail to check, or the download
-        # failed) - drop unverified non-social noise.
-        social_posts = [
-            c for c in all_candidates
-            if "similarity_score" in c or c["is_social"]
-        ]
+        # Keep every candidate Lens/Serper returned, verified or not - a
+        # result that couldn't be face-checked (no thumbnail, download
+        # failed) or that scored low is still a real find worth showing,
+        # just ranked below anything confirmed as a stronger face match.
+        social_posts = all_candidates
         social_posts.sort(key=lambda m: m.get("similarity_score", -1.0), reverse=True)
         for c in social_posts:
             c.pop("is_social", None)
