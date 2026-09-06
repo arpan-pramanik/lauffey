@@ -11,7 +11,7 @@ Face scan in, verified on-chain proof out. Lauffey takes a face, finds a real ma
 3. **Anchor it to a blockchain.** The matched post (or a hash of it) gets Merkle-proofed, ECDSA/Ed25519-signed, and recorded on-chain. Supports three backends (MegaETH-style, Solana-style, EVM) - see [Blockchain Used](#blockchain-used) below for exactly what "on-chain" means for each.
 4. **Re-verify independently.** `verify_receipt.py` takes an exported receipt and re-checks it from scratch in a completely separate process - recomputes the Merkle proof, recovers the signer, and (for the EVM path with a real RPC configured) looks the transaction up on a public block explorer.
 
-Also included: a W3C Verifiable Credential is issued per scan, tamper detection can be demonstrated live (mutate a claim, watch the cryptographic proof reject it), and there's a web frontend on top of all of this - none of which the task requires, but it made testing easier so it stayed.
+Also included: a W3C Verifiable Credential is issued per scan, tamper detection can be demonstrated live (mutate a claim, watch the cryptographic proof reject it), and there's a web frontend on top of all of this.
 
 ## Quick start
 
@@ -82,7 +82,7 @@ Three interchangeable backends, same Merkle-anchoring interface (`blockchain_ver
 - **Solana-style** (`--chain solana`) - Ed25519 signatures, SHA-256 Merkle trees, Memo-program-shaped payloads.
 - **EVM** (`--chain evm`) - Keccak-256 Merkle trees, ECDSA secp256k1. Defaults to a local `py-evm`/`eth-tester` sandbox; point `BLOCKCHAIN_RPC` and `VALIDATOR_PRIVATE_KEY` in `.env` at a funded testnet wallet (e.g. Sepolia) and it submits genuine, Etherscan-checkable transactions instead. We've done this and confirmed it live - real transaction, real block, independently re-verified from a separate process against the public RPC.
 
-By default, `megaeth` and `solana` are locally persisted ledgers (`data/ledger_*.json`) rather than live public-network connections - the task explicitly allows this ("public testnet, mainnet, or a local/simulated chain"), and the part that actually matters - re-verifying a recorded transaction independently, in a separate process, later - works and is demonstrable via `verify_receipt.py` regardless of which backend you pick. All three verifiers persist their validator keypair (`data/*_validator_key.json`, gitignored) alongside the ledger, so a transaction recorded by `python main.py` today is still there and still verifiable next week.
+By default, `megaeth` and `solana` are locally persisted ledgers (`data/ledger_*.json`) rather than live public-network connections. The part that actually matters - re-verifying a recorded transaction independently, in a separate process, later - works and is demonstrable via `verify_receipt.py` regardless of which backend you pick. All three verifiers persist their validator keypair (`data/*_validator_key.json`, gitignored) alongside the ledger, so a transaction recorded by `python main.py` today is still there and still verifiable next week.
 
 ## Test images
 
@@ -105,17 +105,17 @@ Current setup: static frontend on Vercel, Flask backend on an AWS EC2 instance (
 
 **Managing the EC2 instance** (it bills hourly while running, ~$0.09/hr on a t3.large - stop it when you're not demoing):
 ```bash
-aws ec2 stop-instances --instance-ids <instance-id> --region ap-south-1
-aws ec2 start-instances --instance-ids <instance-id> --region ap-south-1
+aws ec2 stop-instances --instance-ids i-06b44fd7ac5249f1b --region ap-south-1
+aws ec2 start-instances --instance-ids i-06b44fd7ac5249f1b --region ap-south-1
 ```
 The backend is a systemd service (`lauffey.service`) that starts automatically when the instance boots - no manual step needed after `start-instances`, just give it a minute to come up. The instance has an Elastic IP, so the public address doesn't change across stop/start.
 
 ## Design notes
 
-Things worth knowing about how this is built, not problems to apologize for:
+Things worth knowing about how this is built:
 
-- **The default chains are local, not testnet/mainnet, and that's allowed.** The task's own wording permits "a local/simulated chain" as long as re-verification against the recorded state genuinely works - and it does, across separate processes, which is the part that actually proves something. The EVM backend can also run against a real funded testnet wallet when you want the extra credibility of a public explorer link, and we've verified that path works too.
-- **Reverse-image search finds photo matches, not face matches.** Google Lens (via SerpAPI/Serper) matches images by visual similarity, not facial recognition - it's very good at finding the same photo reposted elsewhere, and reasonably good at recognizing public figures by their face, but it won't reliably find a *different* photo of a private individual. Dedicated face-search engines exist (PimEyes, FaceCheck.ID) but they're paid, restrict third-party API use, and carry a privacy-surveillance reputation we didn't want attached to this project - so we stuck with the more defensible reverse-image approach the task explicitly names as acceptable.
+- **The default chains are local, not testnet/mainnet.** Re-verification against the recorded state genuinely works across separate processes, which is the part that actually proves something. The EVM backend can also run against a real funded testnet wallet when you want the extra credibility of a public explorer link, and we've verified that path works too.
+- **Reverse-image search finds photo matches, not face matches.** Google Lens (via SerpAPI/Serper) matches images by visual similarity, not facial recognition - it's very good at finding the same photo reposted elsewhere, and reasonably good at recognizing public figures by their face, but it won't reliably find a *different* photo of a private individual. Dedicated face-search engines exist (PimEyes, FaceCheck.ID) but they're paid, restrict third-party API use, and carry a privacy-surveillance reputation we didn't want attached to this project.
 - **Private accounts are invisible, on purpose.** Reverse image search can only surface what's publicly indexed. A locked Instagram or private X account won't show up - that's a property of the web, not a bug here.
 - **Only a 32-byte Merkle root ever touches the chain, never the raw biometric vector.** Storing a 512-dimensional float vector on-chain is both expensive and a privacy problem. The Merkle proof lets a third party confirm a specific claim was included without ever seeing the underlying face embedding.
 - **Heavy occlusion (masks, extreme angles) degrades detection confidence.** Expected behavior for any face detector, flagged honestly in the output rather than forced through.
