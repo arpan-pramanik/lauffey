@@ -167,7 +167,7 @@ def main():
 
     # Display matches
     print("\n--- Discovered Social Content ---")
-    for idx, match in enumerate(matches[:4], 1):
+    for idx, match in enumerate(matches[:10], 1):
         sim_str = f" [Similarity: {match.get('similarity_score')}]" if "similarity_score" in match else ""
         print(f"  [{idx}] {match.get('source', 'Web')}: {match.get('title')}{sim_str}")
         print(f"      URL: {match.get('link')}")

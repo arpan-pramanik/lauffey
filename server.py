@@ -298,7 +298,7 @@ def run_scan():
             "discovery": {
                 "search_mode": search_mode,
                 "top_match": top_match,
-                "all_matches": matches[:4]
+                "all_matches": matches[:10]
             },
             "blockchain": {
                 "tx_hash": tx_hash,

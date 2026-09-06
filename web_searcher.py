@@ -226,51 +226,57 @@ class WebSearcher:
         if raw_matches is None:
             raise RuntimeError(f"All configured search providers failed or returned nothing: {last_err}")
 
-        # Filter social media posts
-        social_posts = []
+        # Normalize every raw match Lens/Serper returned - social platform or
+        # not. The task asks for matching content on "the web/social media",
+        # not social platforms exclusively, and a news article or blog post
+        # showing the same person is still a genuine find.
+        all_candidates = []
         for match in raw_matches:
             link = match.get("link", "")
             source = match.get("source", "").lower()
-            title = match.get("title", "")
-
             is_social = any(domain in link.lower() or domain in source for domain in SOCIAL_DOMAINS)
-            if is_social:
-                social_posts.append({
-                    "title": title or "Social Post",
-                    "link": link,
-                    "source": match.get("source", "Social Media"),
-                    "thumbnail": match.get("thumbnail", ""),
-                    "confidence": "high"
-                })
+            all_candidates.append({
+                "title": match.get("title", "") or ("Social Post" if is_social else "Web Match"),
+                "link": link,
+                "source": match.get("source", "Social Media" if is_social else "Web"),
+                "thumbnail": match.get("thumbnail", ""),
+                "confidence": "high" if is_social else "web-match",
+                "is_social": is_social
+            })
 
-        # Fallback to top visual matches if specific social domains are not direct visual matches
-        if not social_posts and raw_matches:
-            for match in raw_matches[:5]:
-                social_posts.append({
-                    "title": match.get("title", "Web Match"),
-                    "link": match.get("link", ""),
-                    "source": match.get("source", "Web"),
-                    "thumbnail": match.get("thumbnail", ""),
-                    "confidence": "web-match"
-                })
-
-        # Google Lens matches by photo similarity, which finds reposts of the
-        # exact same image reliably but not necessarily a different photo of
-        # the same person. Independently re-check each candidate's thumbnail
-        # against the query face with our own ArcFace/SFace embeddings so
-        # results are ranked by whether the face actually matches, not just
-        # whether the photo looked similar to Lens. Capped at 12 candidates
+        # Google Lens matches by photo similarity, which reliably finds
+        # reposts of the exact same image but won't on its own tell a
+        # genuinely different photo of the same person apart from a photo
+        # that just looks visually similar. Independently re-check every
+        # candidate's thumbnail against the query face with our own
+        # ArcFace/SFace embeddings, so a person's face is recognized across
+        # however many different photos of them Lens happened to surface for
+        # this one query - not just re-checking the single top hit. Capped
         # to bound how many extra downloads/detections one search costs.
-        if query_embedding and social_posts:
-            print(f"  [*] Verifying {min(len(social_posts), 12)} candidate(s) against the query face...")
+        VERIFY_CAP = 20
+        if query_embedding and all_candidates:
+            pool = all_candidates[:VERIFY_CAP]
+            print(f"  [*] Verifying {len(pool)} candidate(s) against the query face...")
             from face_processor import FaceProcessor
             verifier = FaceProcessor(mode=mode)
-            for candidate in social_posts[:12]:
+            for candidate in pool:
                 score = self._verify_face_match(candidate.get("thumbnail", ""), query_embedding, mode, verifier)
                 if score is not None:
                     candidate["similarity_score"] = round(score, 4)
                     candidate["confidence"] = _confidence_label(score)
-            social_posts.sort(key=lambda m: m.get("similarity_score", -1.0), reverse=True)
+
+        # Keep every candidate that's either a confirmed face match (any
+        # similarity score - LOW ones sort to the bottom rather than get
+        # dropped, so a thin result set doesn't just vanish) or an
+        # unverified social post (no thumbnail to check, or the download
+        # failed) - drop unverified non-social noise.
+        social_posts = [
+            c for c in all_candidates
+            if "similarity_score" in c or c["is_social"]
+        ]
+        social_posts.sort(key=lambda m: m.get("similarity_score", -1.0), reverse=True)
+        for c in social_posts:
+            c.pop("is_social", None)
 
         # Save to cache to safeguard user API quota
         if social_posts:
