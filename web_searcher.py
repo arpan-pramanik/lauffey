@@ -3,9 +3,20 @@ import json
 import hashlib
 import time
 import requests
+import numpy as np
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 from config import SERPAPI_KEY, SERPER_API_KEY, SOCIAL_DOMAINS, CACHE_DIR
+
+# Same bucketing local_engine.py uses for on-device gallery matches, applied
+# here to real cosine similarity between the query face and each candidate's
+# face so web results are ranked by actual face match, not photo similarity.
+def _confidence_label(score: float) -> str:
+    if score > 0.40:
+        return "HIGH (MATCH)"
+    if score > 0.25:
+        return "MEDIUM"
+    return "LOW (NO MATCH)"
 
 class WebSearcher:
     """
@@ -120,12 +131,53 @@ class WebSearcher:
             time.sleep(1.5)
         raise RuntimeError(f"SerpAPI request failed: {last_err}")
 
-    def search_reverse_image(self, image_path: str, force: bool = False) -> List[Dict[str, Any]]:
+    def _verify_face_match(self, thumbnail_url: str, query_embedding: list, mode: str, face_processor) -> Optional[float]:
+        """
+        Downloads a candidate result's thumbnail and computes real ArcFace/SFace
+        cosine similarity against the query face embedding - this is what tells
+        a different photo of the same person apart from an unrelated photo that
+        merely looks visually similar to Google Lens.
+        """
+        if not thumbnail_url:
+            return None
+        tmp_path = CACHE_DIR / f"_candidate_{hashlib.sha256(thumbnail_url.encode()).hexdigest()[:12]}.jpg"
+        try:
+            resp = requests.get(thumbnail_url, timeout=8)
+            if resp.status_code != 200 or not resp.content:
+                return None
+            with open(tmp_path, "wb") as f:
+                f.write(resp.content)
+            result = face_processor.process(str(tmp_path))
+            cand_emb = np.array(result["embedding"], dtype=np.float32)
+            q_emb = np.array(query_embedding, dtype=np.float32)
+            if len(cand_emb) != len(q_emb):
+                return None
+            cand_norm = cand_emb / (np.linalg.norm(cand_emb) or 1)
+            q_norm = q_emb / (np.linalg.norm(q_emb) or 1)
+            return float(np.dot(cand_norm, q_norm))
+        except Exception:
+            return None
+        finally:
+            if tmp_path.exists():
+                tmp_path.unlink()
+
+    def search_reverse_image(
+        self,
+        image_path: str,
+        force: bool = False,
+        query_embedding: Optional[list] = None,
+        mode: str = "high"
+    ) -> List[Dict[str, Any]]:
         """
         Executes a Google Lens reverse search of the given image, trying Serper.dev
         first (cheaper per-query) and falling back to SerpAPI if Serper fails or
         is not configured. Results are cached locally by image SHA256 so a
         repeat scan of the same photo never spends quota on either provider.
+
+        When query_embedding is provided, each candidate's thumbnail is
+        independently re-checked against the query face (see
+        _verify_face_match) so a different photo of the same person ranks
+        above a merely visually-similar photo of someone else.
         """
         img_hash = self._get_image_file_hash(image_path)
         cache_file = CACHE_DIR / f"lens_search_{img_hash[:16]}.json"
@@ -201,6 +253,24 @@ class WebSearcher:
                     "thumbnail": match.get("thumbnail", ""),
                     "confidence": "web-match"
                 })
+
+        # Google Lens matches by photo similarity, which finds reposts of the
+        # exact same image reliably but not necessarily a different photo of
+        # the same person. Independently re-check each candidate's thumbnail
+        # against the query face with our own ArcFace/SFace embeddings so
+        # results are ranked by whether the face actually matches, not just
+        # whether the photo looked similar to Lens. Capped at 12 candidates
+        # to bound how many extra downloads/detections one search costs.
+        if query_embedding and social_posts:
+            print(f"  [*] Verifying {min(len(social_posts), 12)} candidate(s) against the query face...")
+            from face_processor import FaceProcessor
+            verifier = FaceProcessor(mode=mode)
+            for candidate in social_posts[:12]:
+                score = self._verify_face_match(candidate.get("thumbnail", ""), query_embedding, mode, verifier)
+                if score is not None:
+                    candidate["similarity_score"] = round(score, 4)
+                    candidate["confidence"] = _confidence_label(score)
+            social_posts.sort(key=lambda m: m.get("similarity_score", -1.0), reverse=True)
 
         # Save to cache to safeguard user API quota
         if social_posts:

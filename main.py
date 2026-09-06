@@ -146,7 +146,10 @@ def main():
         print("\n[STAGE 2/4] Live Reverse Visual Search (Google Lens via Serper.dev/SerpAPI)...")
         searcher = WebSearcher()
         try:
-            matches = searcher.search_reverse_image(face_data["cropped_image"], force=args.force_search)
+            matches = searcher.search_reverse_image(
+                face_data["cropped_image"], force=args.force_search,
+                query_embedding=face_data["embedding"], mode=mode
+            )
         except Exception as e:
             print(f"  [!] Live search encountered an issue: {e}")
             print("  [*] Falling back to on-device discovery engine...")

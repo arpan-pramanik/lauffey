@@ -204,7 +204,10 @@ def run_scan():
         if use_live_search:
             try:
                 searcher = WebSearcher()
-                matches = searcher.search_reverse_image(face_data["cropped_image"])
+                matches = searcher.search_reverse_image(
+                    face_data["cropped_image"],
+                    query_embedding=face_data["embedding"], mode=mode
+                )
                 search_mode = "live"
             except Exception as live_err:
                 if PRODUCTION_MODE:
