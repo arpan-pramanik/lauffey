@@ -4,7 +4,9 @@ Made for HackerHouse Goa 2026, Task 3.
 
 Face scan in, verified on-chain proof out. Lauffey takes a face, finds a real matching social media post for it on the web, and anchors that finding to a blockchain in a way anyone can independently re-check later.
 
-**Live demo:** https://lauffey-frontend.vercel.app (frontend on Vercel, backend on AWS EC2)
+## Demo Video
+
+[![Demo Video](https://img.youtube.com/vi/VblffvoOZO8/maxresdefault.jpg)](https://www.youtube.com/watch?v=VblffvoOZO8)
 
 ## What it does
 
