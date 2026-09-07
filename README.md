@@ -129,3 +129,5 @@ Things worth knowing about how this is built:
 ## Repo layout
 
 Main pipeline: `main.py` (CLI), `server.py` (web API), `face_processor.py`, `web_searcher.py`, `local_engine.py`, `liveness_detector.py`, `zk_credential.py`. Blockchain: `blockchain_verifier.py`, `solana_verifier.py`, `megaeth_verifier.py`, `chain_ledger_store.py`. Verification: `verify_receipt.py`, `test_pipeline.py`. Frontend: `frontend/`.
+
+For how it all fits together on the inside (pipeline flow, module responsibilities, the verifier interface, what "on-chain" really means, glossary), see [ARCHITECTURE.md](ARCHITECTURE.md).
