@@ -29,18 +29,18 @@ SERPER_API_KEY = os.environ.get("SERPER_API_KEY", "").strip()
 
 # Target social media domains to detect in reverse search
 SOCIAL_DOMAINS = [
-    "instagram.com",
-    "twitter.com",
-    "x.com",
-    "linkedin.com",
-    "facebook.com",
-    "reddit.com",
-    "tiktok.com",
-    "youtube.com",
-    "pinterest.com",
-    "threads.net",
-    "github.com",
-    "medium.com"
+"instagram.com",
+"twitter.com",
+"x.com",
+"linkedin.com",
+"facebook.com",
+"reddit.com",
+"tiktok.com",
+"youtube.com",
+"pinterest.com",
+"threads.net",
+"github.com",
+"medium.com"
 ]
 
 # High-accuracy vs Fast modes
